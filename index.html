@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎶 PYC ગરબા Juke Box</title>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #fdf6f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .jukebox-container {
+            max-width: 650px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 40px;
+            padding: 30px 25px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.10), 0 10px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid #f0e0d5;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            color: #b33a2a;
+            letter-spacing: 1px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .header h1 i {
+            color: #d97a3a;
+            font-size: 2rem;
+        }
+
+        .group-banner {
+            background: #b33a2a;
+            color: white;
+            padding: 14px 18px;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            text-align: center;
+            margin-top: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+            box-shadow: 0 4px 12px rgba(179, 58, 42, 0.3);
+            display: inline-block;
+            width: auto;
+            border: none;
+        }
+
+        .group-banner:hover {
+            background: #9e2f20;
+        }
+
+        .group-banner i {
+            margin-right: 10px;
+        }
+
+        /* Section Title */
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #4a2c1e;
+            margin: 25px 0 15px 0;
+            padding-bottom: 8px;
+            border-bottom: 3px dashed #e6cdb8;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-title i {
+            color: #d97a3a;
+        }
+
+        .section-title small {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #7a5a44;
+            margin-left: 5px;
+        }
+
+        /* Song List */
+        .song-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin: 15px 0 10px 0;
+        }
+
+        .song-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fcf6f0;
+            padding: 14px 18px;
+            border-radius: 60px;
+            transition: all 0.2s ease;
+            border: 1px solid #f0e0d5;
+            cursor: default;
+        }
+
+        .song-item:hover {
+            background: #f8ede4;
+            border-color: #dbbca8;
+            transform: translateX(5px);
+        }
+
+        .song-item.active {
+            background: #f0e0d5;
+            border-color: #b33a2a;
+            box-shadow: inset 0 0 0 1px #b33a2a;
+        }
+
+        .song-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #2c1a10;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .song-title .category-tag {
+            font-size: 0.7rem;
+            background: #e6cdb8;
+            padding: 3px 12px;
+            border-radius: 30px;
+            color: #4a2c1e;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .song-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .play-btn, .youtube-btn {
+            background: transparent;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #4a2c1e;
+        }
+
+        .play-btn {
+            background: #e6cdb8;
+            color: #2c1a10;
+        }
+
+        .play-btn:hover {
+            background: #dbbca8;
+            transform: scale(1.05);
+        }
+
+        .play-btn.playing {
+            background: #b33a2a;
+            color: white;
+        }
+
+        .youtube-btn {
+            color: #b33a2a;
+            background: transparent;
+            font-size: 1.3rem;
+        }
+
+        .youtube-btn:hover {
+            color: #cc0000;
+            transform: scale(1.15);
+        }
+
+        /* Now Playing Footer */
+        .now-playing {
+            margin-top: 30px;
+            padding: 16px 20px;
+            background: #2c1a10;
+            border-radius: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            color: #f5e6d8;
+        }
+
+        .track-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .track-info i {
+            color: #d97a3a;
+            font-size: 1.2rem;
+        }
+
+        .track-info span {
+            color: #dbbca8;
+        }
+
+        .player-controls {
+            display: flex;
+            gap: 6px;
+        }
+
+        .player-controls button {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: white;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .player-controls button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Empty state */
+        .empty-message {
+            text-align: center;
+            padding: 30px 10px;
+            color: #7a5a44;
+            font-style: italic;
+        }
+
+        /* Responsive */
+        @media (max-width: 550px) {
+            .jukebox-container { padding: 20px 15px; }
+            .header h1 { font-size: 1.7rem; }
+            .song-item { padding: 12px 14px; flex-wrap: wrap; gap: 8px; }
+            .song-title { font-size: 1rem; flex-wrap: wrap; }
+            .now-playing { flex-direction: column; align-items: stretch; text-align: center; }
+            .player-controls { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="jukebox-container">
+
+    <!-- Header -->
+    <div class="header">
+        <h1>
+            <i class="fas fa-drum"></i> PYC ગરબા Juke Box
+        </h1>
+        <button class="group-banner" onclick="alert('🎉 Join our Garba gang on WhatsApp!')">
+            <i class="fas fa-users"></i> Your Garba gang is waiting! 💃 Click to join.
+        </button>
+    </div>
+
+    <!-- Section: Pick One -->
+    <div class="section-title">
+        <i class="fas fa-hand-pointer"></i> ગરબા pick one
+        <small>— Pick & play</small>
+    </div>
+
+    <!-- Song List -->
+    <div id="songList" class="song-list">
+        <!-- Rendered by JavaScript -->
+    </div>
+
+    <!-- Section: Traditional -->
+    <div class="section-title" style="margin-top: 30px;">
+        <i class="fas fa-history"></i> પ્રાચીન
+        <small>— the old traditional garbas</small>
+    </div>
+
+    <!-- Now Playing Footer -->
+    <div class="now-playing">
+        <div class="track-info">
+            <i class="fas fa-music"></i>
+            <span id="nowPlayingText">Select a song</span>
+        </div>
+        <div class="player-controls">
+            <button id="prevBtn" title="Previous"><i class="fas fa-step-backward"></i></button>
+            <button id="playPauseBtn" title="Play/Pause"><i class="fas fa-play"></i></button>
+            <button id="stopBtn" title="Stop"><i class="fas fa-stop"></i></button>
+            <button id="nextBtn" title="Next"><i class="fas fa-step-forward"></i></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    // 1. SONG DATA — Edit this to add your own songs!
+    // ============================================================
+    const songs = [
+        {
+            id: 1,
+            title: "પ્રાચીન ગરબો ૧",
+            category: "traditional",
+            youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+        },
+        {
+            id: 2,
+            title: "પ્રાચીન ગરબો ૨",
+            category: "traditional",
+            youtube: "https://www.youtube.com/watch?v=3JZ_D3ELwOQ",
+            audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+        },
+        {
+            id: 3,
+            title: "પ્રાચીન ગરબો ૩",
+            category: "traditional",
+            youtube: "https://www.youtube.com/watch?v=9bZkp7q19f0",
+            audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
+        },
+        {
+            id: 4,
+            title: "પ્રાચીન ગરબો ૪",
+            category: "traditional",
+            youtube: "https://www.youtube.com/watch?v=2Vv-BfVoq4g",
+            audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+        },
+        // Add more songs here following the same structure
+    ];
+
+    // ============================================================
+    // 2. APP STATE
+    // ============================================================
+    let currentSongIndex = 0;
+    let isPlaying = false;
+
+    const audio = new Audio();
+    const songListEl = document.getElementById('songList');
+    const nowPlayingText = document.getElementById('nowPlayingText');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+
+    // ============================================================
+    // 3. RENDER SONGS (only "traditional" category to match design)
+    // ============================================================
+    function renderSongs() {
+        const traditionalSongs = songs.filter(s => s.category === 'traditional');
+
+        if (traditionalSongs.length === 0) {
+            songListEl.innerHTML = `<div class="empty-message">No traditional garbas added yet. 🪘</div>`;
+            return;
+        }
+
+        let html = '';
+        traditionalSongs.forEach((song, index) => {
+            const isActive = song.id === songs[currentSongIndex]?.id;
+            html += `
+                <div class="song-item ${isActive ? 'active' : ''}" data-index="${index}" data-id="${song.id}">
+                    <div class="song-title">
+                        ${song.title}
+                        <span class="category-tag">${song.category}</span>
+                    </div>
+                    <div class="song-actions">
+                        <button class="play-btn ${isActive && isPlaying ? 'playing' : ''}" data-action="play" data-id="${song.id}">
+                            <i class="fas ${isActive && isPlaying ? 'fa-pause' : 'fa-play'}"></i>
+                        </button>
+                        <button class="youtube-btn" data-action="youtube" data-url="${song.youtube}" title="Open on YouTube">
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        songListEl.innerHTML = html;
+    }
+
+    // ============================================================
+    // 4. PLAY / PAUSE / STOP / NAVIGATION
+    // ============================================================
+    function playSong(index) {
+        // Find the actual song object from the filtered list
+        const traditionalSongs = songs.filter(s => s.category === 'traditional');
+        if (index < 0 || index >= traditionalSongs.length) return;
+        const song = traditionalSongs[index];
+        const globalIndex = songs.findIndex(s => s.id === song.id);
+
+        if (globalIndex === -1) return;
+
+        // If same song and paused -> resume
+        if (audio.src && audio.src.includes(song.audio) && audio.paused) {
+            audio.play();
+            isPlaying = true;
+            currentSongIndex = globalIndex;
+            updateUI();
+            return;
+        }
+
+        // Load and play new song
+        audio.src = song.audio;
+        audio.load();
+        audio.play().catch(() => { /* Auto-play might be blocked */ });
+
+        currentSongIndex = globalIndex;
+        isPlaying = true;
+        updateUI();
+    }
+
+    function togglePlayPause() {
+        if (audio.paused) {
+            if (!audio.src) {
+                // Nothing loaded: play first traditional song
+                playSong(0);
+            } else {
+                audio.play();
+                isPlaying = true;
+            }
+        } else {
+            audio.pause();
+            isPlaying = false;
+        }
+        updateUI();
+    }
+
+    function stopAudio() {
+        audio.pause();
+        audio.currentTime = 0;
+        isPlaying = false;
+        updateUI();
+    }
+
+    function nextSong() {
+        const traditionalSongs = songs.filter(s => s.category === 'traditional');
+        if (traditionalSongs.length === 0) return;
+        const currentFilteredIndex = traditionalSongs.findIndex(s => s.id === songs[currentSongIndex]?.id);
+        const nextIdx = (currentFilteredIndex + 1) % traditionalSongs.length;
+        playSong(nextIdx);
+    }
+
+    function prevSong() {
+        const traditionalSongs = songs.filter(s => s.category === 'traditional');
+        if (traditionalSongs.length === 0) return;
+        const currentFilteredIndex = traditionalSongs.findIndex(s => s.id === songs[currentSongIndex]?.id);
+        const prevIdx = (currentFilteredIndex - 1 + traditionalSongs.length) % traditionalSongs.length;
+        playSong(prevIdx);
+    }
+
+    // ============================================================
+    // 5. UPDATE UI
+    // ============================================================
+    function updateUI() {
+        const current = songs[currentSongIndex];
+        nowPlayingText.textContent = current ? current.title : 'Select a song';
+
+        // Play/Pause button icon
+        const icon = playPauseBtn.querySelector('i');
+        if (isPlaying) {
+            icon.className = 'fas fa-pause';
+        } else {
+            icon.className = 'fas fa-play';
+        }
+
+        // Update song items
+        const items = songListEl.querySelectorAll('.song-item');
+        items.forEach(item => {
+            const id = parseInt(item.dataset.id);
+            const isActive = id === songs[currentSongIndex]?.id;
+            item.classList.toggle('active', isActive);
+
+            const playBtn = item.querySelector('.play-btn');
+            if (playBtn) {
+                const icon = playBtn.querySelector('i');
+                if (isActive && isPlaying) {
+                    playBtn.classList.add('playing');
+                    icon.className = 'fas fa-pause';
+                } else {
+                    playBtn.classList.remove('playing');
+                    icon.className = 'fas fa-play';
+                }
+            }
+        });
+    }
+
+    // ============================================================
+    // 6. EVENT LISTENERS
+    // ============================================================
+    // Song list click delegation
+    songListEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+
+        const action = btn.dataset.action;
+        const id = parseInt(btn.dataset.id);
+
+        if (action === 'play') {
+            const traditionalSongs = songs.filter(s => s.category === 'traditional');
+            const idx = traditionalSongs.findIndex(s => s.id === id);
+            if (idx !== -1) {
+                if (idx === traditionalSongs.findIndex(s => s.id === songs[currentSongIndex]?.id) && isPlaying) {
+                    // Pause
+                    audio.pause();
+                    isPlaying = false;
+                    updateUI();
+                } else {
+                    playSong(idx);
+                }
+            }
+        } else if (action === 'youtube') {
+            const url = btn.dataset.url;
+            if (url) window.open(url, '_blank');
+        }
+    });
+
+    // Player controls
+    document.getElementById('playPauseBtn').addEventListener('click', togglePlayPause);
+    document.getElementById('stopBtn').addEventListener('click', stopAudio);
+    document.getElementById('nextBtn').addEventListener('click', nextSong);
+    document.getElementById('prevBtn').addEventListener('click', prevSong);
+
+    // Auto-play next when song ends
+    audio.addEventListener('ended', () => {
+        nextSong();
+    });
+
+    // ============================================================
+    // 7. INIT
+    // ============================================================
+    renderSongs();
+    // Pre-load first traditional song
+    const firstTraditional = songs.filter(s => s.category === 'traditional')[0];
+    if (firstTraditional) {
+        audio.src = firstTraditional.audio;
+        currentSongIndex = songs.findIndex(s => s.id === firstTraditional.id);
+    }
+    updateUI();
+
+    // Small UX: Click on song title text also triggers play (optional)
+    songListEl.addEventListener('click', (e) => {
+        const item = e.target.closest('.song-item');
+        if (item && !e.target.closest('button')) {
+            const playBtn = item.querySelector('.play-btn');
+            if (playBtn) playBtn.click();
+        }
+    });
+</script>
+
+</body>
+</html>
