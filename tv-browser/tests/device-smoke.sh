@@ -7,7 +7,17 @@ LOG="${RUNNER_TEMP:-/tmp}/tv-browser-fixture.log"
 UI="${RUNNER_TEMP:-/tmp}/tv-browser-ui.xml"
 python3 -u -m http.server "$PORT" --bind 127.0.0.1 --directory tv-browser/tests/fixtures > "$LOG" 2>&1 &
 SERVER=$!
-trap 'kill "$SERVER" 2>/dev/null || true' EXIT
+cleanup() {
+  local result=$?
+  kill "$SERVER" 2>/dev/null || true
+  if [ "$result" -ne 0 ]; then
+    echo '--- Failure diagnostics ---'
+    cat "$LOG" || true
+    adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' || true
+    adb logcat -d -v time | grep -Ei 'AndroidRuntime|FATAL EXCEPTION|com.visujju.tvbrowser|lowmemorykiller|lmkd|inputmethod|process .* died|killing' | tail -250 || true
+  fi
+}
+trap cleanup EXIT
 adb reverse "tcp:$PORT" "tcp:$PORT"
 adb logcat -c
 adb install -r tv-browser/app/build/outputs/apk/debug/app-debug.apk
@@ -50,8 +60,8 @@ import re, sys, xml.etree.ElementTree as ET
 nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
 assert not any(n.get('content-desc') == 'Open address or search' for n in nodes), 'Toolbar is still visible'
 assert any(n.get('text') == 'HTTP • NOT ENCRYPTED' for n in nodes), 'Full-screen HTTP warning is missing'
-views = [n for n in nodes if n.get('class') == 'android.webkit.WebView']
-assert len(views) == 1 and views[0].get('focused') == 'true', 'WebView is not focused'
+views = [n for n in nodes if n.get('class') == 'android.webkit.WebView' and n.get('focused') == 'true']
+assert len(views) == 1, 'WebView is not focused'
 bounds = tuple(map(int, re.findall(r'\d+', views[0].get('bounds', ''))))
 assert len(bounds) == 4 and bounds[0] == 0 and bounds[1] == 0 and bounds[2] >= 1900 and bounds[3] >= 1060, bounds
 print('Full-screen WebView and HTTP warning verified:', bounds)
