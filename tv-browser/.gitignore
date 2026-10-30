@@ -1,0 +1,8 @@
+.gradle/
+local.properties
+.idea/
+**/build/
+TV-Browser-debug.apk
+__pycache__/
+*.pyc
+*.iml
