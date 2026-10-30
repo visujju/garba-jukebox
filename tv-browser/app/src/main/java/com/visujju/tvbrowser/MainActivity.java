@@ -25,7 +25,6 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
@@ -47,6 +46,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -74,7 +74,11 @@ public final class MainActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private FrameLayout root;
     private LinearLayout shell;
+    private LinearLayout header;
+    private LinearLayout toolbar;
+    private LinearLayout footer;
     private FrameLayout viewport;
+    private LinearLayout.LayoutParams viewportParams;
     private WebView webView;
     private CursorView cursor;
     private View homePanel;
@@ -87,11 +91,16 @@ public final class MainActivity extends Activity {
     private TextView backButton;
     private TextView forwardButton;
     private TextView reloadButton;
+    private TextView fullScreenButton;
+    private TextView insecureBadge;
     private EditText address;
     private ProgressBar progress;
     private View videoView;
+    private TextView videoInsecureBadge;
     private WebChromeClient.CustomViewCallback videoCallback;
     private boolean showingHome = true;
+    private boolean chromeVisible = true;
+    private boolean insecurePage;
     private boolean clearHistoryWhenBlank;
     private boolean backHeld;
     private boolean pointerSelectDown;
@@ -100,7 +109,7 @@ public final class MainActivity extends Activity {
         if (isFinishing()) return;
         backHeld = true;
         if (videoView != null) hideFullscreenVideo();
-        focusAddress(false);
+        revealToolbar(false);
     };
 
     @Override
@@ -126,7 +135,7 @@ public final class MainActivity extends Activity {
                 new int[]{Color.rgb(16, 31, 48), INK, Color.rgb(9, 20, 32)}));
         root.addView(shell, new FrameLayout.LayoutParams(-1, -1));
 
-        LinearLayout header = new LinearLayout(this);
+        header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
         shell.addView(header, new LinearLayout.LayoutParams(-1, dp(38)));
@@ -144,7 +153,7 @@ public final class MainActivity extends Activity {
         byline.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         header.addView(byline, new LinearLayout.LayoutParams(0, -1, 1));
 
-        LinearLayout toolbar = new LinearLayout(this);
+        toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.HORIZONTAL);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams toolbarParams = new LinearLayout.LayoutParams(-1, dp(48));
@@ -189,6 +198,8 @@ public final class MainActivity extends Activity {
         toolbar.addView(address, addressParams);
 
         addToolbarItem(toolbar, toolbarButton("GO", "Open address or search", v -> submitAddress()), 50);
+        fullScreenButton = toolbarButton("FULL", "Return to full-screen page", v -> returnToPage());
+        addToolbarItem(toolbar, fullScreenButton, 55);
         addToolbarItem(toolbar, toolbarButton("HOME", "Browser home", v -> goHome()), 60);
         addToolbarItem(toolbar, toolbarButton("SAVE", "Save current page", v -> confirmSavePage()), 58);
         addToolbarItem(toolbar, toolbarButton("SAVED", "Open saved pages", v -> showSavedPages()), 68);
@@ -206,7 +217,7 @@ public final class MainActivity extends Activity {
         viewport = new FrameLayout(this);
         viewport.setBackground(rounded(PANEL, 18, 0, 0));
         viewport.setClipToOutline(true);
-        LinearLayout.LayoutParams viewportParams = new LinearLayout.LayoutParams(-1, 0, 1);
+        viewportParams = new LinearLayout.LayoutParams(-1, 0, 1);
         viewportParams.topMargin = dp(8);
         shell.addView(viewport, viewportParams);
 
@@ -217,6 +228,11 @@ public final class MainActivity extends Activity {
         viewport.addView(webView, new FrameLayout.LayoutParams(-1, -1));
         webView.setOnFocusChangeListener((view, focused) -> updateCursorVisibility());
 
+        // Keep the HTTP warning visible even when the normal browser bar is hidden.
+        insecureBadge = createInsecureBadge();
+        insecureBadge.setVisibility(View.GONE);
+        viewport.addView(insecureBadge, insecureBadgeParams());
+
         homePanel = buildHomePanel();
         viewport.addView(homePanel, new FrameLayout.LayoutParams(-1, -1));
         errorPanel = buildErrorPanel();
@@ -226,7 +242,7 @@ public final class MainActivity extends Activity {
         cursor.setVisibility(View.GONE);
         viewport.addView(cursor, new FrameLayout.LayoutParams(-1, -1));
 
-        LinearLayout footer = new LinearLayout(this);
+        footer = new LinearLayout(this);
         footer.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(-1, dp(30));
         footerParams.topMargin = dp(3);
@@ -270,16 +286,27 @@ public final class MainActivity extends Activity {
         searchParams.topMargin = dp(22);
         introduction.addView(homeSearch, searchParams);
 
+        ScrollView linksScroll = new ScrollView(this);
+        linksScroll.setFillViewport(true);
+        linksScroll.setVerticalScrollBarEnabled(false);
+        linksScroll.setFocusable(false);
+        LinearLayout.LayoutParams linksParams = new LinearLayout.LayoutParams(0, -1, 1.0f);
+        linksParams.leftMargin = dp(15);
+        panel.addView(linksScroll, linksParams);
         LinearLayout quickLinks = new LinearLayout(this);
         quickLinks.setOrientation(LinearLayout.VERTICAL);
         quickLinks.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams linksParams = new LinearLayout.LayoutParams(0, -1, 1.0f);
-        linksParams.leftMargin = dp(15);
-        panel.addView(quickLinks, linksParams);
+        linksScroll.addView(quickLinks, new ScrollView.LayoutParams(-1, -2));
         TextView quickHeading = text("QUICK LINKS", 11, MUTED, true);
         LinearLayout.LayoutParams headingParams = new LinearLayout.LayoutParams(-1, -2);
         headingParams.bottomMargin = dp(10);
         quickLinks.addView(quickHeading, headingParams);
+        addQuickLinkRow(quickLinks,
+                quickLink("Cinejoy.pk", "Open website", "https://cinejoy.pk/"),
+                quickLink("PVRPlay.in", "Open website", "https://pvrplay.in/"));
+        addQuickLinkRow(quickLinks,
+                quickLink("Netmirror.plus", "Open website", "https://netmirror.plus/"),
+                quickLink("Arena.ai", "Open website", "https://arena.ai/"));
         addQuickLinkRow(quickLinks,
                 quickLink("Google", "Search the web", "https://www.google.com/"),
                 quickLink("YouTube", "Watch and explore", "https://m.youtube.com/"));
@@ -299,11 +326,8 @@ public final class MainActivity extends Activity {
         card.setClickable(true);
         card.setContentDescription(title + ", " + subtitle);
         card.setOnClickListener(v -> openUrl(url));
-        card.addView(text("↗", 16, ACCENT, true));
-        TextView name = text(title, 17, TEXT, true);
-        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(-1, -2);
-        nameParams.topMargin = dp(4);
-        card.addView(name, nameParams);
+        TextView name = text(title, 16, TEXT, true);
+        card.addView(name, new LinearLayout.LayoutParams(-1, -2));
         TextView detail = text(subtitle, 11, MUTED, false);
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
         detailParams.topMargin = dp(3);
@@ -314,8 +338,8 @@ public final class MainActivity extends Activity {
     private void addQuickLinkRow(LinearLayout parent, View first, View second) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(100));
-        rowParams.bottomMargin = dp(9);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(65));
+        rowParams.bottomMargin = dp(8);
         parent.addView(row, rowParams);
         LinearLayout.LayoutParams firstParams = new LinearLayout.LayoutParams(0, -1, 1);
         firstParams.rightMargin = dp(9);
@@ -458,7 +482,14 @@ public final class MainActivity extends Activity {
                     showError("Only HTTP and HTTPS web addresses can be opened.");
                     return;
                 }
+                boolean comingFromHome = showingHome;
                 showPageUi();
+                // Back/forward navigation can bring a page from Home or the toolbar.
+                // Don't hide the bar during a redirect if the user is editing it.
+                if (comingFromHome || (chromeVisible && !address.hasFocus())) {
+                    setBrowserChromeVisible(false);
+                    view.requestFocus();
+                }
                 errorPanel.setVisibility(View.GONE);
                 updateAddress(url);
                 updateSecurityLabel(url);
@@ -498,7 +529,8 @@ public final class MainActivity extends Activity {
             @Override
             public void onProgressChanged(WebView view, int newProgress) {
                 progress.setProgress(newProgress);
-                progress.setVisibility(!showingHome && newProgress < 100 ? View.VISIBLE : View.INVISIBLE);
+                progress.setVisibility(!chromeVisible ? View.GONE
+                        : !showingHome && newProgress < 100 ? View.VISIBLE : View.INVISIBLE);
             }
 
             @Override
@@ -511,6 +543,10 @@ public final class MainActivity extends Activity {
                 videoCallback = callback;
                 shell.setVisibility(View.GONE);
                 root.addView(view, new FrameLayout.LayoutParams(-1, -1));
+                if (insecurePage) {
+                    videoInsecureBadge = createInsecureBadge();
+                    root.addView(videoInsecureBadge, insecureBadgeParams());
+                }
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 getWindow().getDecorView().setSystemUiVisibility(
                         View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
@@ -586,7 +622,10 @@ public final class MainActivity extends Activity {
         hideKeyboard();
         errorPanel.setVisibility(View.GONE);
         showPageUi();
+        setBrowserChromeVisible(false);
         webView.requestFocus();
+        updateAddress(url);
+        updateSecurityLabel(url);
         webView.loadUrl(url);
     }
 
@@ -595,11 +634,71 @@ public final class MainActivity extends Activity {
         homePanel.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
         helper.setText("ARROWS move   •   OK selects   •   BACK returns   •   HOLD BACK for toolbar");
+        updateInsecureBadge();
         updateCursorVisibility();
+    }
+
+    private void setBrowserChromeVisible(boolean visible) {
+        chromeVisible = visible;
+        header.setVisibility(visible ? View.VISIBLE : View.GONE);
+        toolbar.setVisibility(visible ? View.VISIBLE : View.GONE);
+        footer.setVisibility(visible ? View.VISIBLE : View.GONE);
+        progress.setVisibility(!visible ? View.GONE
+                : !showingHome && webView.getProgress() < 100 ? View.VISIBLE : View.INVISIBLE);
+        shell.setPadding(visible ? dp(30) : 0, visible ? dp(17) : 0,
+                visible ? dp(30) : 0, visible ? dp(14) : 0);
+        viewportParams.topMargin = visible ? dp(8) : 0;
+        viewport.setLayoutParams(viewportParams);
+        viewport.setClipToOutline(visible);
+        if (videoView == null) updateSystemUi();
+        updateInsecureBadge();
+    }
+
+    private void updateSystemUi() {
+        getWindow().getDecorView().setSystemUiVisibility(chromeVisible
+                ? View.SYSTEM_UI_FLAG_LOW_PROFILE
+                : View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+    }
+
+    private void revealToolbar(boolean openKeyboard) {
+        setBrowserChromeVisible(true);
+        focusAddress(openKeyboard);
+    }
+
+    private void returnToPage() {
+        if (showingHome) return;
+        hideKeyboard();
+        setBrowserChromeVisible(false);
+        if (errorPanel.getVisibility() == View.VISIBLE) errorRetry.requestFocus();
+        else webView.requestFocus();
+        updateCursorVisibility();
+    }
+
+    private TextView createInsecureBadge() {
+        TextView badge = text("HTTP • NOT ENCRYPTED", 11, Color.rgb(255, 221, 187), true);
+        badge.setPadding(dp(11), dp(7), dp(11), dp(7));
+        badge.setBackground(rounded(Color.rgb(76, 39, 30), 8, Color.rgb(255, 196, 132), 1));
+        return badge;
+    }
+
+    private FrameLayout.LayoutParams insecureBadgeParams() {
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
+        params.setMargins(dp(12), dp(12), 0, 0);
+        return params;
+    }
+
+    private void updateInsecureBadge() {
+        if (insecureBadge == null) return;
+        boolean show = insecurePage && !showingHome && !chromeVisible
+                && errorPanel.getVisibility() != View.VISIBLE;
+        insecureBadge.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     private void showHomeUi(boolean focusSearch) {
         showingHome = true;
+        insecurePage = false;
+        setBrowserChromeVisible(true);
         webView.setVisibility(View.INVISIBLE);
         homePanel.setVisibility(View.VISIBLE);
         errorPanel.setVisibility(View.GONE);
@@ -608,7 +707,7 @@ public final class MainActivity extends Activity {
         if (!address.hasFocus()) address.setText("");
         status.setText("READY TO EXPLORE");
         status.setTextColor(ACCENT);
-        helper.setText("CHOOSE A QUICK LINK OR ENTER AN ADDRESS ABOVE");
+        helper.setText("ON A PAGE: HOLD BACK, OR PRESS UP AT THE TOP, FOR THE TOOLBAR");
         if (focusSearch && homeSearch != null) homeSearch.requestFocus();
         updateNavigation();
     }
@@ -624,7 +723,7 @@ public final class MainActivity extends Activity {
         if (showingHome) return;
         errorPanel.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
-        webView.requestFocus();
+        returnToPage();
         webView.reload();
         updateCursorVisibility();
     }
@@ -635,6 +734,7 @@ public final class MainActivity extends Activity {
         } else if (webView.canGoBack()) {
             hideKeyboard();
             errorPanel.setVisibility(View.GONE);
+            if (!showingHome) returnToPage();
             webView.goBack();
         } else if (!showingHome) {
             goHome();
@@ -651,6 +751,7 @@ public final class MainActivity extends Activity {
         setControlEnabled(backButton, !showingHome || webView.canGoBack());
         setControlEnabled(forwardButton, webView.canGoForward());
         setControlEnabled(reloadButton, !showingHome);
+        setControlEnabled(fullScreenButton, !showingHome);
     }
 
     private void setControlEnabled(View view, boolean enabled) {
@@ -663,20 +764,23 @@ public final class MainActivity extends Activity {
     }
 
     private void updateSecurityLabel(String url) {
-        if (url != null && url.toLowerCase(Locale.ROOT).startsWith("http://")) {
+        insecurePage = url != null && url.toLowerCase(Locale.ROOT).startsWith("http://");
+        if (insecurePage) {
             status.setText("HTTP • NOT ENCRYPTED");
             status.setTextColor(Color.rgb(255, 196, 132));
         } else {
             status.setText("HTTPS");
             status.setTextColor(ACCENT);
         }
+        updateInsecureBadge();
     }
 
     private void showError(String message) {
         if (showingHome) return;
         errorMessage.setText(message);
         errorPanel.setVisibility(View.VISIBLE);
-        progress.setVisibility(View.INVISIBLE);
+        progress.setVisibility(chromeVisible ? View.INVISIBLE : View.GONE);
+        updateInsecureBadge();
         cursor.setVisibility(View.GONE);
         errorRetry.requestFocus();
     }
@@ -729,9 +833,16 @@ public final class MainActivity extends Activity {
                 backHeld = false;
                 handler.removeCallbacks(holdBackAction);
                 handler.postDelayed(holdBackAction, HOLD_BACK_MS);
+            } else if (event.getAction() == KeyEvent.ACTION_DOWN && event.isLongPress() && !backHeld) {
+                // Some remotes deliver Android's long-press event before our timer fires.
+                handler.removeCallbacks(holdBackAction);
+                holdBackAction.run();
             } else if (event.getAction() == KeyEvent.ACTION_UP) {
                 handler.removeCallbacks(holdBackAction);
-                if (!backHeld && !event.isCanceled()) goBack();
+                if (!backHeld && !event.isCanceled()) {
+                    if (videoView == null && chromeVisible && !showingHome) returnToPage();
+                    else goBack();
+                }
                 backHeld = false;
             }
             return true;
@@ -739,7 +850,7 @@ public final class MainActivity extends Activity {
         if (key == KeyEvent.KEYCODE_MENU) {
             if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
                 if (videoView != null) hideFullscreenVideo();
-                focusAddress(false);
+                revealToolbar(false);
             }
             return true;
         }
@@ -754,8 +865,7 @@ public final class MainActivity extends Activity {
             if (key == KeyEvent.KEYCODE_DPAD_DOWN) {
                 if (event.getAction() == KeyEvent.ACTION_DOWN) {
                     if (showingHome) homeSearch.requestFocus();
-                    else if (errorPanel.getVisibility() == View.VISIBLE) errorRetry.requestFocus();
-                    else webView.requestFocus();
+                    else returnToPage();
                 }
                 return true;
             }
@@ -772,6 +882,11 @@ public final class MainActivity extends Activity {
         boolean browsing = videoView == null && !showingHome && errorPanel.getVisibility() != View.VISIBLE
                 && webView.hasFocus() && webView.isShown();
         if (browsing) {
+            // A phone/physical keyboard can send Enter even when no TV IME is visible.
+            // Deliver it to an active web form rather than turning it into a mouse click.
+            if (key == KeyEvent.KEYCODE_ENTER && webView.onCheckIsTextEditor()) {
+                return super.dispatchKeyEvent(event);
+            }
             RemotePointer.Direction direction = null;
             if (key == KeyEvent.KEYCODE_DPAD_UP) direction = RemotePointer.Direction.UP;
             else if (key == KeyEvent.KEYCODE_DPAD_DOWN) direction = RemotePointer.Direction.DOWN;
@@ -801,7 +916,7 @@ public final class MainActivity extends Activity {
             case SCROLL_DOWN: webView.scrollBy(0, dp(90)); break;
             case SCROLL_LEFT: webView.scrollBy(-dp(90), 0); break;
             case SCROLL_RIGHT: webView.scrollBy(dp(90), 0); break;
-            case OPEN_TOOLBAR: focusAddress(false); break;
+            case OPEN_TOOLBAR: revealToolbar(false); break;
             default: break;
         }
     }
@@ -823,9 +938,13 @@ public final class MainActivity extends Activity {
         if (videoView == null) return;
         root.removeView(videoView);
         videoView = null;
+        if (videoInsecureBadge != null) {
+            root.removeView(videoInsecureBadge);
+            videoInsecureBadge = null;
+        }
         shell.setVisibility(View.VISIBLE);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
+        updateSystemUi();
         WebChromeClient.CustomViewCallback callback = videoCallback;
         videoCallback = null;
         if (callback != null) callback.onCustomViewHidden();

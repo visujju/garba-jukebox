@@ -1,1 +1,19 @@
-<!doctype html><html><head><title>Remote click succeeded</title></head><body><h1>Remote click succeeded</h1></body></html>
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Remote click succeeded</title>
+  <style>
+    html, body { margin: 0; height: 100%; font-family: sans-serif; }
+    h1 { margin: 1rem; }
+    form { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+    input { width: 80vw; height: 40vh; font-size: 28px; }
+  </style>
+</head>
+<body>
+  <h1>Remote click succeeded</h1>
+  <form action="/submitted.html" method="get">
+    <input name="query" aria-label="Remote keyboard test" placeholder="Enter text and press Enter">
+  </form>
+</body>
+</html>
