@@ -35,6 +35,24 @@ adb shell input keyevent KEYCODE_DPAD_CENTER
 adb shell input text "http://127.0.0.1:$PORT/"
 adb shell input keyevent KEYCODE_ENTER
 
+show_focus() {
+  echo "--- Current activity and focused views ---"
+  adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' || true
+  adb shell uiautomator dump /sdcard/tv-browser-window.xml >/dev/null || true
+  adb exec-out cat /sdcard/tv-browser-window.xml > "$UI" || true
+  python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+try:
+    nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+    print('Packages:', sorted({n.get('package', '') for n in nodes}))
+    print('Focused:', [(n.get('class'), n.get('text'), n.get('content-desc'))
+                       for n in nodes if n.get('focused') == 'true'])
+    print('WebViews:', [(n.get('text'), n.get('content-desc'), n.get('focused'))
+                       for n in nodes if n.get('class') == 'android.webkit.WebView'])
+except ET.ParseError as error:
+    print('Could not parse window:', error)
+PY
+}
 wait_for_request() {
   local path="$1"
   for attempt in $(seq 1 30); do
@@ -43,15 +61,16 @@ wait_for_request() {
   done
   echo "Timed out waiting for GET $path"
   cat "$LOG"
-  adb shell uiautomator dump /sdcard/tv-browser-window.xml >/dev/null || true
-  adb exec-out cat /sdcard/tv-browser-window.xml || true
-  adb logcat -d -s AndroidRuntime:E chromium:W || true
+  show_focus
+  adb logcat -d -v time | grep -E 'com.visujju.tvbrowser|AndroidRuntime|lowmemorykiller|lmkd' | tail -100 || true
   return 1
 }
 wait_for_request '/'
+show_focus
 
 # The fixture is one viewport-sized link; the browser's center pointer should click it.
 adb shell input keyevent KEYCODE_DPAD_CENTER
+show_focus
 wait_for_request '/clicked.html'
 
 # There must be no fatal app exception during the interaction.
