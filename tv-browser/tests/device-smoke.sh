@@ -14,7 +14,7 @@ cleanup() {
     echo '--- Failure diagnostics ---'
     cat "$LOG" || true
     adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' || true
-    adb logcat -d -v time | grep -Ei 'AndroidRuntime|FATAL EXCEPTION|com.visujju.tvbrowser|lowmemorykiller|lmkd|inputmethod|process .* died|killing' | tail -250 || true
+    adb logcat -d -v time | grep -Ei 'AndroidRuntime|FATAL EXCEPTION|com.visujju.tvbrowser|lowmemorykiller|lmkd|inputmethod|process .* died|killing' | grep -Ev 'AppsFilter|katniss_' | tail -250 || true
   fi
 }
 trap cleanup EXIT
@@ -52,6 +52,26 @@ wait_for_request() {
   cat "$LOG"
   show_focus || true
   adb logcat -d -v time | grep -E 'com.visujju.tvbrowser|AndroidRuntime|lowmemorykiller|lmkd' | tail -100 || true
+  return 1
+}
+wait_for_title() {
+  local title="$1"
+  for attempt in $(seq 1 12); do
+    adb shell uiautomator dump /sdcard/tv-browser-window.xml >/dev/null
+    adb exec-out cat /sdcard/tv-browser-window.xml > "$UI"
+    if python3 - "$UI" "$title" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+sys.exit(0 if any(n.get('class') == 'android.webkit.WebView' and n.get('text') == sys.argv[2]
+                  for n in nodes) else 1)
+PY
+    then
+      echo "WebView rendered: $title"
+      return 0
+    fi
+  done
+  echo "Timed out waiting for page title: $title"
+  show_focus || true
   return 1
 }
 assert_fullscreen() {
@@ -96,18 +116,41 @@ for label in ('Cinejoy.pk', 'PVRPlay.in', 'Netmirror.plus', 'Arena.ai'):
 print('Requested shortcuts are available on Home')
 PY
 
+# Check that the D-pad can leave the Home search for the shortcut grid and return.
+adb shell input keyevent KEYCODE_DPAD_RIGHT
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+labels = ('Cinejoy.pk,', 'PVRPlay.in,', 'Netmirror.plus,', 'Arena.ai,',
+          'Google,', 'YouTube,', 'Wikipedia,', 'DuckDuckGo,')
+assert any(n.get('focused') == 'true' and n.get('content-desc', '').startswith(labels)
+           for n in nodes), 'D-pad could not reach a shortcut from Home search'
+print('D-pad reached the shortcut grid')
+PY
+adb shell input keyevent KEYCODE_DPAD_LEFT
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+assert any(n.get('focused') == 'true' and n.get('content-desc') == 'Search or enter an address'
+           for n in nodes), 'D-pad could not return to Home search'
+PY
+
 # Activate the home search, enter the local URL using keyboard events, and submit it.
 adb shell input keyevent KEYCODE_DPAD_CENTER
 adb shell input text "http://127.0.0.1:$PORT/"
 adb shell input keyevent KEYCODE_ENTER
 wait_for_request '/'
+wait_for_title 'TV Browser remote test'
 show_focus
 assert_fullscreen
 
 # The fixture is one viewport-sized link; the browser's center pointer should click it.
 adb shell input keyevent KEYCODE_DPAD_CENTER
-show_focus
 wait_for_request '/clicked.html'
+wait_for_title 'Remote click succeeded'
+show_focus
 
 # A second OK focuses the large form field. Exercise keyboard text entry and
 # Enter on the webpage; this simulates key input, not Google TV phone pairing.
@@ -126,6 +169,7 @@ adb shell input keyevent KEYCODE_BACK
 show_focus
 adb shell input keyevent KEYCODE_ENTER
 wait_for_request '/submitted.html?query=remote_keyboard_test'
+wait_for_title 'Remote form submitted'
 show_focus
 assert_fullscreen
 
@@ -163,6 +207,7 @@ adb shell input keyevent KEYCODE_BACK
 show_focus
 assert_fullscreen
 adb shell input keyevent KEYCODE_BACK
+wait_for_title 'Remote click succeeded'
 show_focus
 python3 - "$UI" <<'PY'
 import sys, xml.etree.ElementTree as ET
