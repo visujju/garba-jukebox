@@ -6,3 +6,4 @@ TV-Browser-debug.apk
 __pycache__/
 *.pyc
 *.iml
+node_modules/

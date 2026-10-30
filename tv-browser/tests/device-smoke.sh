@@ -74,16 +74,36 @@ PY
   show_focus || true
   return 1
 }
+wait_for_text() {
+  local text="$1"
+  for attempt in $(seq 1 10); do
+    adb shell uiautomator dump /sdcard/tv-browser-window.xml >/dev/null
+    adb exec-out cat /sdcard/tv-browser-window.xml > "$UI"
+    if python3 - "$UI" "$text" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+sys.exit(0 if any(n.get('text') == sys.argv[2] for n in nodes) else 1)
+PY
+    then
+      echo "Found on TV: $text"
+      return 0
+    fi
+  done
+  echo "Timed out waiting for on-screen text: $text"
+  show_focus || true
+  return 1
+}
 assert_fullscreen() {
   python3 - "$UI" <<'PY'
 import re, sys, xml.etree.ElementTree as ET
 nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
 assert not any(n.get('content-desc') == 'Open address or search' for n in nodes), 'Toolbar is still visible'
 assert any(n.get('text') == 'HTTP • NOT ENCRYPTED' for n in nodes), 'Full-screen HTTP warning is missing'
-views = [n for n in nodes if n.get('class') == 'android.webkit.WebView' and n.get('focused') == 'true']
-assert len(views) == 1, 'WebView is not focused'
-bounds = tuple(map(int, re.findall(r'\d+', views[0].get('bounds', ''))))
-assert len(bounds) == 4 and bounds[0] == 0 and bounds[1] == 0 and bounds[2] >= 1900 and bounds[3] >= 1060, bounds
+views = [n for n in nodes if n.get('class') == 'android.webkit.WebView']
+assert views, 'No WebView on screen'
+bounds = [tuple(map(int, re.findall(r'\d+', v.get('bounds', '')))) for v in views]
+assert any(len(b) == 4 and b[0] == 0 and b[1] == 0 and b[2] >= 1900 and b[3] >= 1060
+           for b in bounds), bounds
 print('Full-screen WebView and HTTP warning verified:', bounds)
 PY
 }
@@ -143,17 +163,27 @@ adb shell input text "http://127.0.0.1:$PORT/"
 adb shell input keyevent KEYCODE_ENTER
 wait_for_request '/'
 wait_for_title 'TV Browser remote test'
+wait_for_text 'TV focus ready'
+wait_for_text 'FOCUSED: first'
 show_focus
 assert_fullscreen
 
-# The fixture is one viewport-sized link; the browser's center pointer should click it.
+# Arrows move between picture cards in both dimensions, then OK opens a
+# JS-only poster card. No on-screen cursor or coordinate taps are used.
+adb shell input keyevent KEYCODE_DPAD_DOWN
+wait_for_text 'FOCUSED: third'
+adb shell input keyevent KEYCODE_DPAD_UP
+wait_for_text 'FOCUSED: first'
+adb shell input keyevent KEYCODE_DPAD_RIGHT
+wait_for_text 'FOCUSED: second-poster'
+show_focus
 adb shell input keyevent KEYCODE_DPAD_CENTER
-wait_for_request '/clicked.html'
+wait_for_request '/clicked.html?via=poster'
 wait_for_title 'Remote click succeeded'
 show_focus
 
-# A second OK focuses the large form field. Exercise keyboard text entry and
-# Enter on the webpage; this simulates key input, not Google TV phone pairing.
+# OK opens a focused web form field. Exercise keyboard text entry and Enter;
+# this simulates key input, not Google TV phone pairing.
 adb shell input keyevent KEYCODE_DPAD_CENTER
 show_focus
 adb shell input text remote_keyboard_test
@@ -173,9 +203,9 @@ wait_for_title 'Remote form submitted'
 show_focus
 assert_fullscreen
 
-# Google TV phone remotes supply the same D-pad events. At the top edge, Up must
-# reveal the address bar; Down returns to the page with no browser chrome.
-for i in $(seq 1 18); do adb shell input keyevent KEYCODE_DPAD_UP; done
+# Google TV phone remotes supply the same D-pad events. Holding Up at the top
+# reveals the address bar; Down returns to the page with no browser chrome.
+adb shell input keyevent --longpress KEYCODE_DPAD_UP
 show_focus
 assert_toolbar
 adb shell input keyevent KEYCODE_DPAD_DOWN

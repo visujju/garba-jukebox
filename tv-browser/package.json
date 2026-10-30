@@ -1,0 +1,11 @@
+{
+  "name": "tv-browser-tests",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test:focus": "node --test tests/focus-support.test.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}

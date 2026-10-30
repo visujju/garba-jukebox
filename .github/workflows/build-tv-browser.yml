@@ -25,6 +25,11 @@ jobs:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
       - name: Check Android TV manifest
         run: python3 -m unittest discover -s tv-browser/tests -v
+      - name: Test focus support for website cards
+        working-directory: tv-browser
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run test:focus
       - name: Test and build debug APK
         working-directory: tv-browser
         run: |

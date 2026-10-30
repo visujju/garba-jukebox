@@ -1,4 +1,53 @@
 <!doctype html>
-<html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>TV Browser remote test</title>
-<style>*{box-sizing:border-box}html,body{margin:0;height:100%}a{display:flex;align-items:center;justify-content:center;background:#1e554f;color:white;font:36px sans-serif;min-height:100vh;text-decoration:none}</style></head>
-<body><a href="/clicked.html">Press OK anywhere on this page</a></body></html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TV Browser remote test</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #102034; color: white; font: 20px sans-serif; }
+    h1, p { margin: 20px 32px; }
+    .grid { display: grid; grid-template-columns: 220px 220px; gap: 32px; margin: 24px 32px; }
+    .card { display: block; width: 220px; color: white; text-decoration: none; background: #28475a; }
+    img { display: block; width: 220px; height: 160px; background: #287768; }
+    .card span { display: block; padding: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Choose a picture</h1>
+  <p id="focus-status">FOCUSED: none</p>
+  <p id="helper-status">Preparing TV focus</p>
+  <div class="grid">
+    <a class="card" id="first" href="/clicked.html?via=link">
+      <img alt="First poster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
+      <span>First poster link</span>
+    </a>
+    <!-- Like many real catalogues, this has a JS click listener, but no link or tabindex. -->
+    <div class="card" id="custom-card">
+      <img id="second-poster" alt="Second poster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
+      <span>Second poster</span>
+    </div>
+    <a class="card" id="third" href="/clicked.html?via=third">
+      <img alt="Third poster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
+      <span>Third poster</span>
+    </a>
+    <button class="card" id="fourth" type="button">Fourth button</button>
+  </div>
+  <script>
+    document.addEventListener('focusin', function (event) {
+      document.getElementById('focus-status').textContent = 'FOCUSED: ' + event.target.id;
+    });
+    document.getElementById('custom-card').addEventListener('click', function () {
+      location.href = '/clicked.html?via=poster';
+    });
+    var poster = document.getElementById('second-poster');
+    var watcher = new MutationObserver(function () {
+      if (poster.getAttribute('data-tv-browser-focus-added') === 'true') {
+        document.getElementById('helper-status').textContent = 'TV focus ready';
+        watcher.disconnect();
+      }
+    });
+    watcher.observe(poster, {attributes: true, attributeFilter: ['data-tv-browser-focus-added']});
+    window.addEventListener('load', function () { document.getElementById('first').focus(); });
+  </script>
+</body>
+</html>

@@ -18,12 +18,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.os.SystemClock;
 import android.text.InputType;
+import android.util.Log;
 import android.view.Gravity;
-import android.view.InputDevice;
 import android.view.KeyEvent;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowManager;
@@ -54,6 +52,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -80,7 +82,6 @@ public final class MainActivity extends Activity {
     private FrameLayout viewport;
     private LinearLayout.LayoutParams viewportParams;
     private WebView webView;
-    private CursorView cursor;
     private View homePanel;
     private View errorPanel;
     private TextView homeSearch;
@@ -103,7 +104,8 @@ public final class MainActivity extends Activity {
     private boolean insecurePage;
     private boolean clearHistoryWhenBlank;
     private boolean backHeld;
-    private boolean pointerSelectDown;
+    private boolean upHeldForToolbar;
+    private String focusSupportScript;
 
     private final Runnable holdBackAction = () -> {
         if (isFinishing()) return;
@@ -118,6 +120,7 @@ public final class MainActivity extends Activity {
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
                 | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
+        focusSupportScript = loadFocusSupportScript();
         buildInterface();
         configureWebView();
         showHomeUi(true);
@@ -226,7 +229,6 @@ public final class MainActivity extends Activity {
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
         viewport.addView(webView, new FrameLayout.LayoutParams(-1, -1));
-        webView.setOnFocusChangeListener((view, focused) -> updateCursorVisibility());
 
         // Keep the HTTP warning visible even when the normal browser bar is hidden.
         insecureBadge = createInsecureBadge();
@@ -238,9 +240,6 @@ public final class MainActivity extends Activity {
         errorPanel = buildErrorPanel();
         errorPanel.setVisibility(View.GONE);
         viewport.addView(errorPanel, new FrameLayout.LayoutParams(-1, -1));
-        cursor = new CursorView(this);
-        cursor.setVisibility(View.GONE);
-        viewport.addView(cursor, new FrameLayout.LayoutParams(-1, -1));
 
         footer = new LinearLayout(this);
         footer.setGravity(Gravity.CENTER_VERTICAL);
@@ -439,6 +438,19 @@ public final class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    private String loadFocusSupportScript() {
+        StringBuilder script = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                getAssets().open("tv_focus.js"), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) script.append(line).append('\n');
+            return script.toString();
+        } catch (IOException error) {
+            Log.w("TVBrowser", "Could not load TV focus support", error);
+            return null;
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private void configureWebView() {
         WebSettings settings = webView.getSettings();
@@ -502,9 +514,12 @@ public final class MainActivity extends Activity {
                     view.clearHistory();
                     clearHistoryWhenBlank = false;
                 }
-                if (!HOME_URL.equals(url) && url != null && url.equals(view.getUrl())) {
+                if (AddressResolver.isWebUrl(url) && url.equals(view.getUrl())) {
                     updateAddress(url);
                     updateSecurityLabel(url);
+                    // This script only adds visible focus cues and keyboard access for
+                    // non-semantic cards; it never exposes a native bridge to the page.
+                    if (focusSupportScript != null) view.evaluateJavascript(focusSupportScript, null);
                 }
                 updateNavigation();
             }
@@ -633,9 +648,8 @@ public final class MainActivity extends Activity {
         showingHome = false;
         homePanel.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
-        helper.setText("ARROWS move   •   OK selects   •   BACK returns   •   HOLD BACK for toolbar");
+        helper.setText("ARROWS choose an item   •   OK opens   •   BACK returns   •   HOLD BACK for toolbar");
         updateInsecureBadge();
-        updateCursorVisibility();
     }
 
     private void setBrowserChromeVisible(boolean visible) {
@@ -672,7 +686,6 @@ public final class MainActivity extends Activity {
         setBrowserChromeVisible(false);
         if (errorPanel.getVisibility() == View.VISIBLE) errorRetry.requestFocus();
         else webView.requestFocus();
-        updateCursorVisibility();
     }
 
     private TextView createInsecureBadge() {
@@ -702,12 +715,11 @@ public final class MainActivity extends Activity {
         webView.setVisibility(View.INVISIBLE);
         homePanel.setVisibility(View.VISIBLE);
         errorPanel.setVisibility(View.GONE);
-        cursor.setVisibility(View.GONE);
         progress.setVisibility(View.INVISIBLE);
         if (!address.hasFocus()) address.setText("");
         status.setText("READY TO EXPLORE");
         status.setTextColor(ACCENT);
-        helper.setText("ON A PAGE: HOLD BACK, OR PRESS UP AT THE TOP, FOR THE TOOLBAR");
+        helper.setText("ON A PAGE: HOLD BACK, OR HOLD UP AT THE TOP, FOR THE TOOLBAR");
         if (focusSearch && homeSearch != null) homeSearch.requestFocus();
         updateNavigation();
     }
@@ -725,7 +737,6 @@ public final class MainActivity extends Activity {
         webView.setVisibility(View.VISIBLE);
         returnToPage();
         webView.reload();
-        updateCursorVisibility();
     }
 
     private void goBack() {
@@ -781,13 +792,11 @@ public final class MainActivity extends Activity {
         errorPanel.setVisibility(View.VISIBLE);
         progress.setVisibility(chromeVisible ? View.INVISIBLE : View.GONE);
         updateInsecureBadge();
-        cursor.setVisibility(View.GONE);
         errorRetry.requestFocus();
     }
 
     private void focusAddress(boolean openKeyboard) {
         address.requestFocus();
-        updateCursorVisibility();
         if (openKeyboard) showKeyboard();
     }
 
@@ -811,22 +820,26 @@ public final class MainActivity extends Activity {
         return root.getRootView().getHeight() - visible.bottom > dp(150);
     }
 
-    private void updateCursorVisibility() {
-        if (cursor == null || webView == null) return;
-        boolean show = !showingHome && videoView == null && errorPanel.getVisibility() != View.VISIBLE
-                && webView.hasFocus() && webView.isShown();
-        cursor.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         int key = event.getKeyCode();
-        if ((key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER)
-                && event.getAction() == KeyEvent.ACTION_UP && pointerSelectDown) {
-            pointerSelectDown = false;
+        if (key == KeyEvent.KEYCODE_DPAD_UP && upHeldForToolbar) {
+            if (event.getAction() == KeyEvent.ACTION_UP) upHeldForToolbar = false;
             return true;
         }
         if (keyboardVisible()) return super.dispatchKeyEvent(event);
+
+        // A held Up at the top of a page is an alternative to holding Back,
+        // without stealing ordinary Up presses used to navigate between items.
+        if (key == KeyEvent.KEYCODE_DPAD_UP && event.getAction() == KeyEvent.ACTION_DOWN
+                && (event.isLongPress() || event.getRepeatCount() >= 4)
+                && videoView == null && !showingHome && !chromeVisible
+                && errorPanel.getVisibility() != View.VISIBLE && webView.hasFocus()
+                && !webView.canScrollVertically(-1)) {
+            upHeldForToolbar = true;
+            revealToolbar(false);
+            return true;
+        }
 
         if (key == KeyEvent.KEYCODE_BACK) {
             if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
@@ -879,59 +892,9 @@ public final class MainActivity extends Activity {
             }
         }
 
-        boolean browsing = videoView == null && !showingHome && errorPanel.getVisibility() != View.VISIBLE
-                && webView.hasFocus() && webView.isShown();
-        if (browsing) {
-            // A phone/physical keyboard can send Enter even when no TV IME is visible.
-            // Deliver it to an active web form rather than turning it into a mouse click.
-            if (key == KeyEvent.KEYCODE_ENTER && webView.onCheckIsTextEditor()) {
-                return super.dispatchKeyEvent(event);
-            }
-            RemotePointer.Direction direction = null;
-            if (key == KeyEvent.KEYCODE_DPAD_UP) direction = RemotePointer.Direction.UP;
-            else if (key == KeyEvent.KEYCODE_DPAD_DOWN) direction = RemotePointer.Direction.DOWN;
-            else if (key == KeyEvent.KEYCODE_DPAD_LEFT) direction = RemotePointer.Direction.LEFT;
-            else if (key == KeyEvent.KEYCODE_DPAD_RIGHT) direction = RemotePointer.Direction.RIGHT;
-            if (direction != null) {
-                if (event.getAction() == KeyEvent.ACTION_DOWN) movePointer(direction, event.getRepeatCount());
-                return true;
-            }
-            if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER) {
-                if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
-                    pointerSelectDown = true;
-                    clickPointer();
-                }
-                return true;
-            }
-        }
+        // Let WebView deliver arrows and OK to the page. Its spatial navigation
+        // moves between focusable pictures, links, buttons and form controls.
         return super.dispatchKeyEvent(event);
-    }
-
-    private void movePointer(RemotePointer.Direction direction, int repeats) {
-        RemotePointer.Action action = cursor.move(direction, repeats,
-                webView.canScrollVertically(-1), webView.canScrollVertically(1),
-                webView.canScrollHorizontally(-1), webView.canScrollHorizontally(1));
-        switch (action) {
-            case SCROLL_UP: webView.scrollBy(0, -dp(90)); break;
-            case SCROLL_DOWN: webView.scrollBy(0, dp(90)); break;
-            case SCROLL_LEFT: webView.scrollBy(-dp(90), 0); break;
-            case SCROLL_RIGHT: webView.scrollBy(dp(90), 0); break;
-            case OPEN_TOOLBAR: revealToolbar(false); break;
-            default: break;
-        }
-    }
-
-    private void clickPointer() {
-        long time = SystemClock.uptimeMillis();
-        MotionEvent down = MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN, cursor.pointerX(), cursor.pointerY(), 0);
-        MotionEvent up = MotionEvent.obtain(time, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP,
-                cursor.pointerX(), cursor.pointerY(), 0);
-        down.setSource(InputDevice.SOURCE_TOUCHSCREEN);
-        up.setSource(InputDevice.SOURCE_TOUCHSCREEN);
-        webView.dispatchTouchEvent(down);
-        webView.dispatchTouchEvent(up);
-        down.recycle();
-        up.recycle();
     }
 
     private void hideFullscreenVideo() {
@@ -949,7 +912,6 @@ public final class MainActivity extends Activity {
         videoCallback = null;
         if (callback != null) callback.onCustomViewHidden();
         if (!showingHome) webView.requestFocus();
-        updateCursorVisibility();
     }
 
     private void confirmSavePage() {

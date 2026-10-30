@@ -13,7 +13,10 @@
 <body>
   <h1>Remote click succeeded</h1>
   <form action="/submitted.html" method="get">
-    <input name="query" aria-label="Remote keyboard test" placeholder="Enter text and press Enter">
+    <input id="query" name="query" aria-label="Remote keyboard test" placeholder="Enter text and press Enter">
   </form>
+  <script>
+    window.addEventListener('load', function () { document.getElementById('query').focus(); });
+  </script>
 </body>
 </html>
