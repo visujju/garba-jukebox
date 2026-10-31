@@ -40,4 +40,4 @@ jobs:
           profile: tv_1080p
           ram-size: 2048M
           emulator-boot-timeout: 600
-          script: TV_BROWSER_CAPTURE_HOME=1 bash tv-browser/tests/run-device-smoke.sh
+          script: bash tv-browser/tests/run-device-smoke.sh
