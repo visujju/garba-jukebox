@@ -3,5 +3,7 @@ local.properties
 .idea/
 **/build/
 node_modules/
+__pycache__/
+*.pyc
 *.iml
 Lumen-TV-debug.apk
