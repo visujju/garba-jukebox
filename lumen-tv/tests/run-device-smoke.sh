@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
-# Android TV emulator system services can restart during first boot and kill a
-# dependent WebView process. Retry once only when Android reports app death;
-# a reproducible crash or an ordinary focus/test failure still fails the job.
+# Android TV emulator system services sometimes restart during first boot and
+# kill WebView apps that depend on the Google fonts provider. Retry once only
+# when logcat confirms that specific emulator condition.
 set -euo pipefail
-if bash lumen-tv/tests/device-smoke.sh; then
+LOG="${RUNNER_TEMP:-/tmp}/lumen-tv-first-attempt.log"
+if bash lumen-tv/tests/device-smoke.sh > "$LOG" 2>&1; then
+  cat "$LOG"
   exit 0
 fi
-if adb logcat -d -v brief | grep -E 'Force removing ActivityRecord.*com\.visujju\.lumentv.*app died' >/dev/null; then
-  echo 'The emulator killed the app while system services were settling; retrying once.'
+if adb logcat -d -v brief | grep -E 'Process com\.google\.android\.gms\.persistent .*has died' >/dev/null \
+    && adb logcat -d -v brief | grep -E 'Killing .*com\.visujju\.lumentv.*depends on provider com\.google\.android\.gms' >/dev/null; then
+  # First-attempt diagnostics remain visible without marking a successful
+  # retried check as having application errors.
+  sed 's/^::error /::warning /' "$LOG"
+  echo 'Google Play Services restarted and killed the app; retrying once on the settled emulator.'
   sleep 10
   bash lumen-tv/tests/device-smoke.sh
 else
+  cat "$LOG"
   exit 1
 fi

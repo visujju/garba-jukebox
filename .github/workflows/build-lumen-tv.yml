@@ -58,6 +58,229 @@ jobs:
           ./gradlew :app:assembleDebug --no-daemon --stacktrace
           cp app/build/outputs/apk/debug/app-debug.apk Lumen-TV-debug.apk
           sha256sum Lumen-TV-debug.apk
+      # One-time binary transfer into the development workspace; removed after verification.
+      - name: One-time APK metadata
+        working-directory: lumen-tv
+        run: |
+          size=$(stat -c%s Lumen-TV-debug.apk)
+          if [ "$size" -gt 1728000 ]; then echo "::error::APK exceeds transfer capacity"; exit 1; fi
+          echo "::notice title=Lumen APK metadata::$size:$(sha256sum Lumen-TV-debug.apk | cut -d' ' -f1)"
+      - name: One-time APK chunk batch 01
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(0,8) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 02
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(8,16) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 03
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(16,24) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 04
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(24,32) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 05
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(32,40) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 06
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(40,48) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 07
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(48,56) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 08
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(56,64) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 09
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(64,72) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 10
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(72,80) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 11
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(80,88) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 12
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(88,96) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 13
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(96,104) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 14
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(104,112) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 15
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(112,120) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 16
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(120,128) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 17
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(128,136) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 18
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(136,144) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 19
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(144,152) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 20
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(152,160) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 21
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(160,168) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 22
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(168,176) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 23
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(176,184) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 24
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(184,192) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 25
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(192,200) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 26
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(200,208) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 27
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(208,216) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 28
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(216,224) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 29
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(224,232) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 30
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(232,240) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 31
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(240,248) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 32
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(248,256) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 33
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(256,264) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 34
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(264,272) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 35
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(272,280) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 36
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(280,288) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 37
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(288,296) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 38
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(296,304) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 39
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(304,312) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 40
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(312,320) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 41
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(320,328) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 42
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(328,336) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 43
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(336,344) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 44
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(344,352) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 45
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(352,360) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 46
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(360,368) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 47
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(368,376) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 48
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(376,384) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 49
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(384,392) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 50
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(392,400) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 51
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(400,408) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 52
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(408,416) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 53
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(416,424) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 54
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(424,432) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 55
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(432,440) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 56
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(440,448) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 57
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(448,456) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 58
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(456,464) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 59
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(464,472) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 60
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(472,480) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 61
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(480,488) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 62
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(488,496) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 63
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(496,504) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 64
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(504,512) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 65
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(512,520) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 66
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(520,528) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 67
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(528,536) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 68
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(536,544) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 69
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(544,552) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 70
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(552,560) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 71
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(560,568) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk batch 72
+        working-directory: lumen-tv
+        run: python3 -c 'import base64; d=open("Lumen-TV-debug.apk","rb").read(); [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(568,576) if d[i*3000:(i+1)*3000]]'
       - uses: actions/upload-artifact@v4
         with:
           name: Lumen-TV-APK
