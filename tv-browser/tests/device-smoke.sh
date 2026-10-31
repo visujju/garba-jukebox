@@ -164,12 +164,15 @@ adb shell input keyevent KEYCODE_ENTER
 wait_for_request '/'
 wait_for_title 'TV Browser remote test'
 wait_for_text 'TV focus ready'
-wait_for_text 'FOCUSED: first'
+wait_for_text 'FOCUSED: none'
 show_focus
 assert_fullscreen
 
-# Arrows move between picture cards in both dimensions, then OK opens a
-# JS-only poster card. No on-screen cursor or coordinate taps are used.
+# Start from an unfocused page whose HTML order differs from its visual grid.
+# Real D-pad events should follow geometry, not a fixed HTML/tab sequence.
+adb shell input keyevent KEYCODE_DPAD_RIGHT
+wait_for_text 'FOCUSED: first'
+wait_for_text 'SPATIAL: handled'
 adb shell input keyevent KEYCODE_DPAD_DOWN
 wait_for_text 'FOCUSED: third'
 adb shell input keyevent KEYCODE_DPAD_UP

@@ -892,8 +892,8 @@ public final class MainActivity extends Activity {
             }
         }
 
-        // Let WebView deliver arrows and OK to the page. Its spatial navigation
-        // moves between focusable pictures, links, buttons and form controls.
+        // Deliver arrows and OK to the page. The focus helper selects nearby
+        // items when the website has not handled the key itself.
         return super.dispatchKeyEvent(event);
     }
 

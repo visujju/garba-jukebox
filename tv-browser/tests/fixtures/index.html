@@ -8,6 +8,10 @@
     h1, p { margin: 20px 32px; }
     .grid { display: grid; grid-template-columns: 220px 220px; gap: 32px; margin: 24px 32px; }
     .card { display: block; width: 220px; color: white; text-decoration: none; background: #28475a; }
+    #first { grid-column: 1; grid-row: 1; }
+    #custom-card { grid-column: 2; grid-row: 1; }
+    #third { grid-column: 1; grid-row: 2; }
+    #fourth { grid-column: 2; grid-row: 2; }
     img { display: block; width: 220px; height: 160px; background: #287768; }
     .card span { display: block; padding: 12px; }
   </style>
@@ -16,21 +20,23 @@
   <h1>Choose a picture</h1>
   <p id="focus-status">FOCUSED: none</p>
   <p id="helper-status">Preparing TV focus</p>
+  <p id="spatial-status">SPATIAL: waiting</p>
+  <!-- The HTML order intentionally differs from the visual grid. -->
   <div class="grid">
-    <a class="card" id="first" href="/clicked.html?via=link">
-      <img alt="First poster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
-      <span>First poster link</span>
-    </a>
-    <!-- Like many real catalogues, this has a JS click listener, but no link or tabindex. -->
-    <div class="card" id="custom-card">
-      <img id="second-poster" alt="Second poster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
-      <span>Second poster</span>
-    </div>
     <a class="card" id="third" href="/clicked.html?via=third">
       <img alt="Third poster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
       <span>Third poster</span>
     </a>
     <button class="card" id="fourth" type="button">Fourth button</button>
+    <!-- Like many real catalogues, this has a JS click listener, but no link or tabindex. -->
+    <div class="card" id="custom-card">
+      <img id="second-poster" alt="Second poster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
+      <span>Second poster</span>
+    </div>
+    <a class="card" id="first" href="/clicked.html?via=link">
+      <img alt="First poster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
+      <span>First poster link</span>
+    </a>
   </div>
   <script>
     document.addEventListener('focusin', function (event) {
@@ -43,11 +49,17 @@
     var watcher = new MutationObserver(function () {
       if (poster.getAttribute('data-tv-browser-focus-added') === 'true') {
         document.getElementById('helper-status').textContent = 'TV focus ready';
+        // This listener is registered after the browser's focus helper.
+        window.addEventListener('keydown', function (event) {
+          if (event.defaultPrevented && (/^(Arrow)?(Left|Right|Up|Down)$/.test(event.key)
+                  || (event.keyCode >= 37 && event.keyCode <= 40))) {
+            document.getElementById('spatial-status').textContent = 'SPATIAL: handled';
+          }
+        });
         watcher.disconnect();
       }
     });
     watcher.observe(poster, {attributes: true, attributeFilter: ['data-tv-browser-focus-added']});
-    window.addEventListener('load', function () { document.getElementById('first').focus(); });
   </script>
 </body>
 </html>

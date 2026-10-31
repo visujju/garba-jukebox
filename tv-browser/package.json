@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "test:focus": "node --test tests/focus-support.test.cjs"
+    "test:focus": "node --test tests/*.test.cjs"
   },
   "devDependencies": {
     "jsdom": "26.1.0"

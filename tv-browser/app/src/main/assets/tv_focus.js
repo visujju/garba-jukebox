@@ -1,7 +1,7 @@
 /*
  * TV focus support for ordinary web pages. Runs in the page's own context; it
- * has no Android bridge and sends no data anywhere. Native WebView D-pad
- * navigation and activation remain in charge for normal links and controls.
+ * has no Android bridge and sends no data anywhere. Normal links and controls
+ * keep their native activation behavior.
  */
 (function () {
     'use strict';
@@ -20,7 +20,8 @@
 
     function visible(element) {
         if (!element || element === document.body || element === document.documentElement
-                || element.closest('[aria-hidden="true"],[hidden],[inert]')) return false;
+                || element.closest('[aria-hidden="true"],[aria-disabled="true"],[hidden],[inert]')
+                || element.matches(':disabled')) return false;
         var rect = element.getBoundingClientRect();
         if (rect.width < 8 || rect.height < 8) return false;
         var computed = window.getComputedStyle(element);
@@ -68,6 +69,100 @@
             event.preventDefault();
             target.click();
         }
+    }, false);
+
+    var focusable = 'a[href],button,input:not([type="hidden"]),select,textarea,summary,'
+        + 'iframe,video[controls],audio[controls],[contenteditable=""],[contenteditable="true"],[tabindex]';
+
+    function modalScope() {
+        var dialogs = document.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]');
+        for (var i = dialogs.length - 1; i >= 0; i--) {
+            if (visible(dialogs[i])) return dialogs[i];
+        }
+        return document;
+    }
+
+    function nextInDirection(current, direction) {
+        var scope = modalScope();
+        var items = scope.querySelectorAll(focusable);
+        var from = current && current !== document.body && current !== document.documentElement
+            && visible(current) && (scope === document || scope.contains(current))
+            ? current.getBoundingClientRect() : null;
+        var best = null;
+        var bestScore = Infinity;
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var tabIndex = item.getAttribute('tabindex');
+            if (item === current || (tabIndex !== null && Number(tabIndex) < 0)
+                    || (item.tabIndex < 0 && !item.hasAttribute('contenteditable')) || !visible(item)) continue;
+            if (from && current && (current.contains(item) || item.contains(current))) continue;
+            var rect = item.getBoundingClientRect();
+            var score;
+            if (!from) {
+                // Start at the first visible item, not the page's HTML/tab order.
+                if (rect.right <= 0 || rect.bottom <= 0
+                        || rect.left >= window.innerWidth || rect.top >= window.innerHeight) continue;
+                score = Math.max(0, rect.top) * (window.innerWidth + 1) + Math.max(0, rect.left);
+            } else {
+                var fromX = (from.left + from.right) / 2;
+                var fromY = (from.top + from.bottom) / 2;
+                var itemX = (rect.left + rect.right) / 2;
+                var itemY = (rect.top + rect.bottom) / 2;
+                var horizontal = direction === 'left' || direction === 'right';
+                var primary = horizontal ? itemX - fromX : itemY - fromY;
+                if (direction === 'left' || direction === 'up') primary = -primary;
+                var viewportSize = horizontal ? window.innerWidth : window.innerHeight;
+                if (primary <= 1 || primary > 2 * viewportSize) continue;
+                var crossGap = horizontal
+                    ? Math.max(0, from.top - rect.bottom, rect.top - from.bottom)
+                    : Math.max(0, from.left - rect.right, rect.left - from.right);
+                var crossCenter = horizontal ? Math.abs(itemY - fromY) : Math.abs(itemX - fromX);
+                // Favor a nearby item on the same row/column, but allow a
+                // diagonal choice when that is the closest available option.
+                score = primary + 2 * crossGap + 0.05 * crossCenter;
+            }
+            if (score < bestScore) {
+                best = item;
+                bestScore = score;
+            }
+        }
+        return best;
+    }
+
+    // Detect sites that move focus or scroll themselves, even when they do not
+    // explicitly prevent the key. Do not perform a second movement for them.
+    var keyStarts = new WeakMap();
+    window.addEventListener('keydown', function (event) {
+        if (event.isTrusted) keyStarts.set(event, {
+            focused: document.activeElement, x: window.scrollX, y: window.scrollY
+        });
+    }, true);
+
+    // Run after the website's own handlers. If a page handles an arrow itself,
+    // or the user is editing a field/slider, leave the key to that page.
+    window.addEventListener('keydown', function (event) {
+        if (!event.isTrusted || event.defaultPrevented || event.altKey || event.ctrlKey
+                || event.metaKey || event.shiftKey) return;
+        var start = keyStarts.get(event);
+        if (start && (start.focused !== document.activeElement || start.x !== window.scrollX
+                || start.y !== window.scrollY)) return;
+        var keys = {ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
+                    Left: 'left', Right: 'right', Up: 'up', Down: 'down'};
+        var codes = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
+        var direction = keys[event.key] || codes[event.keyCode];
+        if (!direction) return;
+        var current = document.activeElement;
+        if (current && current.closest('input,textarea,select,video,audio,[contenteditable=""],'
+                + '[contenteditable="true"],[role="slider"],[role="spinbutton"],[role="combobox"]')) return;
+        var next = nextInDirection(current, direction);
+        if (!next) return; // Let WebView scroll or use its own fallback at the edge.
+        try { next.focus({preventScroll: true}); } catch (ignored) { next.focus(); }
+        if (document.activeElement !== next) return;
+        if (typeof next.scrollIntoView === 'function') {
+            try { next.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'auto'}); }
+            catch (ignored) { next.scrollIntoView(false); }
+        }
+        event.preventDefault();
     }, false);
 
     var scheduled = false;
