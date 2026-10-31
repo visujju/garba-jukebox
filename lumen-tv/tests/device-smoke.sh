@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Exercise the bundled, offline UI in a real Android TV emulator WebView.
-set -euo pipefail
+set -Eeuo pipefail
 UI="${RUNNER_TEMP:-/tmp}/lumen-tv-window.xml"
+trap 'echo "::error title=Lumen TV smoke test::Command failed at line $LINENO: $BASH_COMMAND"' ERR
 
 show_focus() {
   adb shell uiautomator dump /sdcard/lumen-tv-window.xml >/dev/null
@@ -24,6 +25,19 @@ cleanup() {
     cat "$UI" || true
     adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' || true
     adb logcat -d -v time | grep -Ei 'lumentv|AndroidRuntime|FATAL EXCEPTION|WebView|chromium|process .* died|lmkd' | tail -200 || true
+    # Surface a concise hierarchy in the check annotations as well as the log.
+    python3 - "$UI" <<'PY' || true
+import sys, xml.etree.ElementTree as ET
+try:
+    nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+    focused = [(n.get('text'), n.get('content-desc')) for n in nodes if n.get('focused') == 'true']
+    labels = [(n.get('text'), n.get('content-desc')) for n in nodes
+              if n.get('text') or n.get('content-desc')]
+    text = ('Focused: ' + str(focused) + '\nLabels: ' + str(labels))[:3000]
+    print('::notice title=Lumen TV hierarchy::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+except Exception as exc:
+    print('::notice title=Lumen TV hierarchy::' + str(exc))
+PY
   fi
 }
 trap cleanup EXIT
@@ -52,7 +66,7 @@ sys.exit(0 if any(label.lower() in (n.get('text', '') + ' ' + n.get('content-des
 PY
     then echo "Found $label ($focused)"; return 0; fi
   done
-  echo "Timed out waiting for $label ($focused)"
+  echo "::error title=Lumen TV focus timeout::Timed out waiting for $label ($focused)"
   return 1
 }
 
