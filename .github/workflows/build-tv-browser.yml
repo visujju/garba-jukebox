@@ -36,38 +36,6 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
           cp app/build/outputs/apk/debug/app-debug.apk TV-Browser-debug.apk
-      # One-time transfer of this public debug APK to the session's workspace.
-      # GitHub truncates individual annotations, so use small chunks across steps.
-      - name: Export APK chunks 0-7
-        env:
-          FIRST_CHUNK: '0'
-        run: |
-          python3 -c 'import base64,hashlib,os,pathlib; b=pathlib.Path("tv-browser/TV-Browser-debug.apk").read_bytes(); p=[b[i:i+3000] for i in range(0,len(b),3000)]; n=int(os.environ["FIRST_CHUNK"]); assert len(p)<=48; print("::notice title=TVAPK-SHA256::"+hashlib.sha256(b).hexdigest()) if n==0 else None; [print("::notice title=TVAPK-%03d::%s"%(i,base64.b64encode(p[i]).decode())) for i in range(n,min(n+8,len(p)))]'
-      - name: Export APK chunks 8-15
-        env:
-          FIRST_CHUNK: '8'
-        run: |
-          python3 -c 'import base64,hashlib,os,pathlib; b=pathlib.Path("tv-browser/TV-Browser-debug.apk").read_bytes(); p=[b[i:i+3000] for i in range(0,len(b),3000)]; n=int(os.environ["FIRST_CHUNK"]); assert len(p)<=48; print("::notice title=TVAPK-SHA256::"+hashlib.sha256(b).hexdigest()) if n==0 else None; [print("::notice title=TVAPK-%03d::%s"%(i,base64.b64encode(p[i]).decode())) for i in range(n,min(n+8,len(p)))]'
-      - name: Export APK chunks 16-23
-        env:
-          FIRST_CHUNK: '16'
-        run: |
-          python3 -c 'import base64,hashlib,os,pathlib; b=pathlib.Path("tv-browser/TV-Browser-debug.apk").read_bytes(); p=[b[i:i+3000] for i in range(0,len(b),3000)]; n=int(os.environ["FIRST_CHUNK"]); assert len(p)<=48; print("::notice title=TVAPK-SHA256::"+hashlib.sha256(b).hexdigest()) if n==0 else None; [print("::notice title=TVAPK-%03d::%s"%(i,base64.b64encode(p[i]).decode())) for i in range(n,min(n+8,len(p)))]'
-      - name: Export APK chunks 24-31
-        env:
-          FIRST_CHUNK: '24'
-        run: |
-          python3 -c 'import base64,hashlib,os,pathlib; b=pathlib.Path("tv-browser/TV-Browser-debug.apk").read_bytes(); p=[b[i:i+3000] for i in range(0,len(b),3000)]; n=int(os.environ["FIRST_CHUNK"]); assert len(p)<=48; print("::notice title=TVAPK-SHA256::"+hashlib.sha256(b).hexdigest()) if n==0 else None; [print("::notice title=TVAPK-%03d::%s"%(i,base64.b64encode(p[i]).decode())) for i in range(n,min(n+8,len(p)))]'
-      - name: Export APK chunks 32-39
-        env:
-          FIRST_CHUNK: '32'
-        run: |
-          python3 -c 'import base64,hashlib,os,pathlib; b=pathlib.Path("tv-browser/TV-Browser-debug.apk").read_bytes(); p=[b[i:i+3000] for i in range(0,len(b),3000)]; n=int(os.environ["FIRST_CHUNK"]); assert len(p)<=48; print("::notice title=TVAPK-SHA256::"+hashlib.sha256(b).hexdigest()) if n==0 else None; [print("::notice title=TVAPK-%03d::%s"%(i,base64.b64encode(p[i]).decode())) for i in range(n,min(n+8,len(p)))]'
-      - name: Export APK chunks 40-47
-        env:
-          FIRST_CHUNK: '40'
-        run: |
-          python3 -c 'import base64,hashlib,os,pathlib; b=pathlib.Path("tv-browser/TV-Browser-debug.apk").read_bytes(); p=[b[i:i+3000] for i in range(0,len(b),3000)]; n=int(os.environ["FIRST_CHUNK"]); assert len(p)<=48; print("::notice title=TVAPK-SHA256::"+hashlib.sha256(b).hexdigest()) if n==0 else None; [print("::notice title=TVAPK-%03d::%s"%(i,base64.b64encode(p[i]).decode())) for i in range(n,min(n+8,len(p)))]'
       - uses: actions/upload-artifact@v4
         with:
           name: TV-Browser-APK
