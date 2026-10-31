@@ -150,7 +150,11 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 class ScaleScreenshot {
     public static void main(String[] args) throws Exception {
         BufferedImage original = ImageIO.read(new File(args[0]));
@@ -159,12 +163,23 @@ class ScaleScreenshot {
         graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         graphics.drawImage(original, 0, 0, 720, 405, null);
         graphics.dispose();
-        ImageIO.write(scaled, "jpg", new File(args[1]));
+        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+        ImageWriteParam params = writer.getDefaultWriteParam();
+        params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+        params.setCompressionQuality(.45f);
+        try (ImageOutputStream out = ImageIO.createImageOutputStream(new File(args[1]))) {
+            writer.setOutput(out);
+            writer.write(null, new IIOImage(scaled, null, null), params);
+        }
+        writer.dispose();
     }
 }
 JAVA
   java -Djava.awt.headless=true "${RUNNER_TEMP:-/tmp}/ScaleScreenshot.java" "${RUNNER_TEMP:-/tmp}/tv-browser-home.png" "${RUNNER_TEMP:-/tmp}/tv-browser-home.jpg"
-  printf '::notice file=tv-browser/README.md,line=1,title=TV home screenshot::%s\n' "$(base64 -w0 "${RUNNER_TEMP:-/tmp}/tv-browser-home.jpg")"
+  encoded=$(base64 -w0 "${RUNNER_TEMP:-/tmp}/tv-browser-home.jpg")
+  for ((offset = 0, part = 0; offset < ${#encoded}; offset += 3000, part++)); do
+    printf '::notice file=tv-browser/README.md,line=1,title=TV home %02d::%s\n' "$part" "${encoded:offset:3000}"
+  done
 fi
 python3 - "$UI" <<'PY'
 import sys, xml.etree.ElementTree as ET
@@ -342,6 +357,42 @@ nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
 assert any(n.get('class') == 'android.webkit.WebView' and n.get('text') == 'Remote click succeeded'
            for n in nodes), 'Back did not return to the previous page'
 print('Back navigation verified')
+PY
+
+# A refused local connection exercises the browser-owned error screen and its
+# D-pad recovery controls (it does not test any third-party website).
+adb shell input keyevent KEYCODE_MENU
+show_focus
+assert_toolbar
+adb shell input text 'http://127.0.0.1:8766/'
+adb shell input keyevent KEYCODE_ENTER
+wait_for_text "This page couldn't be opened"
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+assert any(n.get('content-desc') == 'Try opening this page again' and n.get('focused') == 'true'
+           for n in nodes), 'Retry is not focused on the error screen'
+assert any(n.get('content-desc') == 'Return to the browser home' and n.get('focusable') == 'true'
+           for n in nodes), 'Home is not available on the error screen'
+PY
+adb shell input keyevent KEYCODE_DPAD_RIGHT
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any(n.get('content-desc') == 'Return to the browser home' and n.get('focused') == 'true'
+           for n in nodes), 'Could not move from Retry to Home'
+PY
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'Your shortcuts'
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any(n.get('content-desc') == 'Search or enter an address' and n.get('focused') == 'true'
+           for n in nodes), 'Home search is not focused after recovery'
+print('Error screen recovery verified')
 PY
 
 # There must be no fatal app exception during the interaction.
