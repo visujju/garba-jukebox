@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080c10">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="description" content="Lumen TV is a cinematic TV interface with a fictional demonstration catalog.">
+  <title>Lumen TV — Stories worth staying in for</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="icon-home" viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7v9a1 1 0 0 1-1 1h-5.1v-6.2H9.6v6.2H4.5a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+    <symbol id="icon-movies" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M8 4.5v15m8-15v15M3.5 9h4.5m-4.5 6H8m8-6h4.5M16 15h4.5"/></symbol>
+    <symbol id="icon-live" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="12.5" rx="2"/><path d="m9 21 3-3 3 3M9 2.5 12 5l3-2.5"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M10.2 3.2h3.6l.6 2.1 1.8.8 1.9-1 2.5 2.5-1 1.9.8 1.8 2.1.6v3.6l-2.1.6-.8 1.8 1 1.9-2.5 2.5-1.9-1-1.8.8-.6 2.1h-3.6l-.6-2.1-1.8-.8-1.9 1-2.5-2.5 1-1.9-.8-1.8-2.1-.6v-3.6l2.1-.6.8-1.8-1-1.9 2.5-2.5 1.9 1 1.8-.8z" transform="translate(0 -1) scale(.92) translate(1 1)"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="icon-bookmark" viewBox="0 0 24 24"><path d="M6 4.5h12v15l-6-3.3-6 3.3z"/></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 4.5v15M4.5 12h15"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
+    <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M4 12h15m-5-5 5 5-5 5"/></symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="icon-spark" viewBox="0 0 24 24"><path d="M12 2.8c.8 5.3 2.5 7 7.8 7.8-5.3.8-7 2.5-7.8 7.8-.8-5.3-2.5-7-7.8-7.8C9.5 9.8 11.2 8.1 12 2.8Z"/><path d="M19 16.5v4m-2-2h4"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <aside class="rail" aria-label="Main navigation">
+      <button class="brand" data-nav="home" aria-label="Lumen TV home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-name">lumen<span>.</span></span>
+      </button>
+      <div class="rail-label">MENU</div>
+      <nav class="nav-list" aria-label="Browse">
+        <button class="nav-item is-active" data-nav="home" aria-current="page"><svg class="icon"><use href="#icon-home"/></svg><span>Home</span></button>
+        <button class="nav-item" data-nav="search"><svg class="icon"><use href="#icon-search"/></svg><span>Search</span></button>
+        <button class="nav-item" data-nav="movies"><svg class="icon"><use href="#icon-movies"/></svg><span>Movies</span></button>
+        <button class="nav-item" data-nav="live"><svg class="icon"><use href="#icon-live"/></svg><span>Live TV</span></button>
+        <button class="nav-item" data-nav="settings"><svg class="icon"><use href="#icon-settings"/></svg><span>Settings</span></button>
+      </nav>
+      <div class="rail-footer" aria-label="Demo mode">
+        <span class="rail-status"></span><span>DEMO<br>MODE</span>
+      </div>
+    </aside>
+
+    <div class="main-shell">
+      <header class="topbar">
+        <div class="topbar-title"><span class="topbar-star">✳</span><span>YOUR FRONT ROW TO EVERY STORY</span></div>
+        <div class="topbar-actions">
+          <span class="demo-badge"><span></span> DEMO CATALOG</span>
+          <button class="saved-link" data-nav="saved" aria-label="Open My List"><svg class="icon"><use href="#icon-bookmark"/></svg><span>My List</span><span id="saved-count" class="saved-count">0</span></button>
+          <span class="profile" aria-label="Local profile">L</span>
+        </div>
+      </header>
+
+      <main id="main" tabindex="-1">
+        <section class="view" data-page="home" aria-label="Home">
+          <div class="hero">
+            <img class="hero-image" src="assets/last-light.jpg" alt="">
+            <div class="hero-wash"></div>
+            <div class="hero-content">
+              <div class="eyebrow"><span class="eyebrow-line"></span> THE SPOTLIGHT <span class="eyebrow-dot">✦</span> A LUMEN PICK</div>
+              <h1>THE LAST<br><span>LIGHT</span></h1>
+              <div class="hero-meta"><span class="age-tag">DEMO</span><span>2025</span><i></i><span>SCI-FI ADVENTURE</span><i></i><span>2H 14M</span></div>
+              <p>A journey beyond the known. A last chance to find a way home.</p>
+              <div class="hero-actions">
+                <button class="button button-primary" id="hero-details"><svg class="icon"><use href="#icon-arrow"/></svg><span>Explore title</span></button>
+                <button class="button button-glass" id="hero-save"><svg class="icon"><use href="#icon-plus"/></svg><span>Add to My List</span></button>
+              </div>
+              <div class="hero-note">A fictional title in the demo catalog. No video source connected.</div>
+            </div>
+            <div class="hero-index" aria-hidden="true"><span>FEATURED STORY</span><strong>01 <em>/</em> 08</strong><div class="index-line"><i></i></div></div>
+          </div>
+
+          <div class="page-content home-content">
+            <div class="section-heading">
+              <div><div class="section-kicker">A LITTLE SOMETHING FOR EVERYONE</div><h2>Made for movie night<span>.</span></h2></div>
+              <button class="text-link" data-nav="movies">EXPLORE MOVIES <svg class="icon"><use href="#icon-arrow"/></svg></button>
+            </div>
+            <div id="home-picks" class="title-grid" aria-label="Featured titles"></div>
+            <div class="section-heading second-heading">
+              <div><div class="section-kicker">ONE MORE EPISODE</div><h2>Stories to settle into<span>.</span></h2></div>
+              <span class="section-side-label">THE SERIES COLLECTION <span>↗</span></span>
+            </div>
+            <div id="home-series" class="title-grid" aria-label="Featured series"></div>
+            <div class="bottom-note"><span>✳</span> GOOD STORIES, BIG SCREEN <span>—</span> A VISUAL DEMO</div>
+          </div>
+        </section>
+
+        <section class="view subpage" data-page="search" aria-label="Search" hidden>
+          <div class="page-intro"><div class="section-kicker">DISCOVER SOMETHING DIFFERENT</div><h1>Find your next<br><span>favorite.</span></h1><p>Search the fictional movies and series in this demo catalog.</p></div>
+          <label class="search-box"><svg class="icon"><use href="#icon-search"/></svg><input id="search-input" type="search" placeholder="Search titles, genres or stories" autocomplete="off" aria-label="Search demo titles"><span class="search-key">SEARCH</span></label>
+          <div class="subsection"><div class="small-heading"><h2 id="search-heading">Explore the collection</h2><span id="search-count"></span></div><div id="search-results" class="title-grid"></div><p class="empty-message" id="search-empty" hidden>No demo titles match that search. Try another word.</p></div>
+        </section>
+
+        <section class="view subpage" data-page="movies" aria-label="Movies" hidden>
+          <div class="page-intro"><div class="section-kicker">THE MOVIE COLLECTION</div><h1>Big stories.<br><span>Bigger screen.</span></h1><p>Explore the fictional films in our visual demo.</p></div>
+          <div class="filter-row" aria-label="Movie genres">
+            <button class="filter-chip is-selected" data-filter="all" aria-pressed="true">All movies</button>
+            <button class="filter-chip" data-filter="Sci-Fi" aria-pressed="false">Sci-Fi</button>
+            <button class="filter-chip" data-filter="Adventure" aria-pressed="false">Adventure</button>
+            <button class="filter-chip" data-filter="Drama" aria-pressed="false">Drama</button>
+          </div>
+          <div class="subsection"><div class="small-heading"><h2>All movies</h2><span id="movie-count"></span></div><div id="movie-results" class="title-grid"></div><p class="empty-message" id="movies-empty" hidden>No demo movies in this genre yet.</p></div>
+        </section>
+
+        <section class="view subpage" data-page="live" aria-label="Live TV" hidden>
+          <div class="page-intro"><div class="section-kicker">LIVE TV</div><h1>Live, made<br><span>beautiful.</span></h1><p>A home for your favorite channels, all in one place.</p></div>
+          <div class="empty-panel">
+            <div class="empty-illustration"><div class="empty-halo"></div><svg class="icon"><use href="#icon-live"/></svg><span class="signal-dot"></span></div>
+            <div class="empty-copy"><div class="section-kicker">NO CHANNELS CONNECTED</div><h2>Your live TV starts here.</h2><p>This is a design demo. It doesn't include live channels or a player. A licensed content source and playback integration are needed.</p><button class="button button-primary" data-nav="home"><span>Back to Home</span><svg class="icon"><use href="#icon-arrow"/></svg></button></div>
+          </div>
+        </section>
+
+        <section class="view subpage" data-page="saved" aria-label="My List" hidden>
+          <div class="page-intro"><div class="section-kicker">YOUR PERSONAL COLLECTION</div><h1>A little list of<br><span>good things.</span></h1><p>Your saved demo titles stay on this device.</p></div>
+          <div class="subsection"><div class="small-heading"><h2>My List</h2><span id="saved-page-count"></span></div><div id="saved-results" class="title-grid"></div><div id="saved-empty" class="empty-message">Your list is empty. Choose a title and add it to My List.</div></div>
+          <button class="button button-glass saved-back" data-nav="home"><span>Back to Home</span><svg class="icon"><use href="#icon-arrow"/></svg></button>
+        </section>
+
+        <section class="view subpage" data-page="settings" aria-label="Settings" hidden>
+          <div class="page-intro"><div class="section-kicker">MAKE YOURSELF AT HOME</div><h1>Your space.<br><span>Your way.</span></h1><p>A few simple settings for your Lumen experience.</p></div>
+          <div class="settings-grid">
+            <div class="settings-card"><div class="settings-icon"><svg class="icon"><use href="#icon-spark"/></svg></div><div class="settings-copy"><h2>Reduce motion</h2><p>Minimize interface animations and transitions.</p></div><button class="switch" id="motion-switch" role="switch" aria-checked="false" aria-label="Reduce motion"><span></span></button></div>
+            <div class="settings-card"><div class="settings-icon"><svg class="icon"><use href="#icon-bookmark"/></svg></div><div class="settings-copy"><h2>Saved titles</h2><p>Clear your locally saved demo titles.</p></div><button class="settings-action" id="clear-saved">Clear list</button></div>
+            <div class="settings-card about-card"><div class="settings-icon"><svg class="icon"><use href="#icon-live"/></svg></div><div class="settings-copy"><h2>About this demo</h2><p>Fictional titles and artwork. No streams or live channels are included.</p></div><span class="settings-version">V 1.0</span></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="dialog-backdrop" class="dialog-backdrop" hidden>
+    <section id="details-dialog" class="dialog detail-dialog" role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden>
+      <div class="dialog-image-wrap"><img id="detail-image" src="assets/last-light.jpg" alt=""><div></div></div>
+      <button class="dialog-close" data-close-dialog aria-label="Close title details"><svg class="icon"><use href="#icon-close"/></svg></button>
+      <div class="dialog-content"><div class="section-kicker">LUMEN DEMO CATALOG <span>✦</span> <span id="detail-type"></span></div><h2 id="detail-title"></h2><div class="dialog-meta" id="detail-meta"></div><p id="detail-description"></p><div class="dialog-notice">Fictional demo title. No video is available to play.</div><div class="dialog-actions"><button class="button button-primary" id="detail-save"><svg class="icon"><use href="#icon-plus"/></svg><span>Add to My List</span></button><button class="button button-glass" data-close-dialog>Back to browse</button></div></div>
+    </section>
+    <section id="clear-dialog" class="dialog confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="clear-title" hidden>
+      <div class="section-kicker">YOUR SAVED TITLES</div><h2 id="clear-title">Clear My List?</h2><p>This removes all saved demo titles from this device.</p><div class="dialog-actions"><button class="button button-glass" id="cancel-clear">Keep my list</button><button class="button button-danger" id="confirm-clear">Clear list</button></div>
+    </section>
+  </div>
+  <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
+</body>
+</html>

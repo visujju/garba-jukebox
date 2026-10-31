@@ -1,0 +1,12 @@
+{
+  "name": "lumen-tv-demo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A remote-friendly cinematic smart TV interface demo.",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

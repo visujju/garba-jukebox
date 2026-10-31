@@ -1,0 +1,7 @@
+.gradle/
+local.properties
+.idea/
+**/build/
+node_modules/
+*.iml
+Lumen-TV-debug.apk

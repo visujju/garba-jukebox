@@ -1,0 +1,56 @@
+name: Build Lumen TV APK
+
+on:
+  push:
+    paths:
+      - 'lumen-tv/**'
+      - '.github/workflows/build-lumen-tv.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        working-directory: lumen-tv
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Check the manifest and TV interface
+        working-directory: lumen-tv
+        run: |
+          python3 -m unittest discover -s tests -v
+          npm test
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+      - name: Build debug APK
+        working-directory: lumen-tv
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk Lumen-TV-debug.apk
+          sha256sum Lumen-TV-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Lumen-TV-APK
+          path: lumen-tv/Lumen-TV-debug.apk
+          if-no-files-found: error
+          retention-days: 30
