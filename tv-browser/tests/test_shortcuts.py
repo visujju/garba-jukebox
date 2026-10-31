@@ -24,7 +24,7 @@ class ShortcutTests(unittest.TestCase):
     def test_requested_shortcuts_keep_the_exact_domains(self):
         expected = {
             "Cinejoy.pk": "https://cinejoy.pk/",
-            "PVRPlay.in": "https://pvrplay.in/",
+            "PVRPlay": "https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/",
             "Netmirror.plus": "https://netmirror.plus/",
             "Arena.ai": "https://arena.ai/",
         }

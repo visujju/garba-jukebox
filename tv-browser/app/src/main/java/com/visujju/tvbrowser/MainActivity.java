@@ -35,6 +35,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
@@ -53,10 +54,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -70,6 +73,7 @@ public final class MainActivity extends Activity {
     private static final int ACCENT = Color.rgb(126, 240, 205);
     private static final String PREFS = "tv_browser";
     private static final String SAVED_KEY = "saved_pages";
+    private static final String BLOCK_ADS_KEY = "block_ads";
     private static final String HOME_URL = "about:blank";
     private static final long HOLD_BACK_MS = 650;
 
@@ -93,6 +97,7 @@ public final class MainActivity extends Activity {
     private TextView forwardButton;
     private TextView reloadButton;
     private TextView fullScreenButton;
+    private TextView adBlockButton;
     private TextView insecureBadge;
     private EditText address;
     private ProgressBar progress;
@@ -105,7 +110,10 @@ public final class MainActivity extends Activity {
     private boolean clearHistoryWhenBlank;
     private boolean backHeld;
     private boolean upHeldForToolbar;
+    // WebView calls shouldInterceptRequest on a background thread.
+    private volatile boolean adBlockingEnabled;
     private String focusSupportScript;
+    private String adBlockScript;
 
     private final Runnable holdBackAction = () -> {
         if (isFinishing()) return;
@@ -120,7 +128,9 @@ public final class MainActivity extends Activity {
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
                 | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
-        focusSupportScript = loadFocusSupportScript();
+        adBlockingEnabled = getPreferencesFile().getBoolean(BLOCK_ADS_KEY, true);
+        focusSupportScript = loadAssetScript("tv_focus.js");
+        adBlockScript = loadAssetScript("tv_adblock.js");
         buildInterface();
         configureWebView();
         showHomeUi(true);
@@ -207,6 +217,9 @@ public final class MainActivity extends Activity {
         addToolbarItem(toolbar, toolbarButton("SAVE", "Save current page", v -> confirmSavePage()), 58);
         addToolbarItem(toolbar, toolbarButton("SAVED", "Open saved pages", v -> showSavedPages()), 68);
         addToolbarItem(toolbar, toolbarButton("CLEAR", "Clear browsing data", v -> confirmClearData()), 63);
+        adBlockButton = toolbarButton("BLOCK ON", "Ad blocking on; select to turn off", v -> toggleAdBlocking());
+        addToolbarItem(toolbar, adBlockButton, 77);
+        updateAdBlockButton();
 
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setMax(100);
@@ -302,7 +315,7 @@ public final class MainActivity extends Activity {
         quickLinks.addView(quickHeading, headingParams);
         addQuickLinkRow(quickLinks,
                 quickLink("Cinejoy.pk", "Open website", "https://cinejoy.pk/"),
-                quickLink("PVRPlay.in", "Open website", "https://pvrplay.in/"));
+                quickLink("PVRPlay", "Open website", "https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/"));
         addQuickLinkRow(quickLinks,
                 quickLink("Netmirror.plus", "Open website", "https://netmirror.plus/"),
                 quickLink("Arena.ai", "Open website", "https://arena.ai/"));
@@ -438,15 +451,15 @@ public final class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    private String loadFocusSupportScript() {
+    private String loadAssetScript(String name) {
         StringBuilder script = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                getAssets().open("tv_focus.js"), StandardCharsets.UTF_8))) {
+                getAssets().open(name), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) script.append(line).append('\n');
             return script.toString();
         } catch (IOException error) {
-            Log.w("TVBrowser", "Could not load TV focus support", error);
+            Log.w("TVBrowser", "Could not load browser helper " + name, error);
             return null;
         }
     }
@@ -473,14 +486,27 @@ public final class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                if (adBlockingEnabled && AdBlocker.isAdUrl(url)) return true;
                 if (!request.isForMainFrame()) return false;
-                return blockUnsupported(request.getUrl().toString());
+                return blockUnsupported(url);
             }
 
             @Override
             @SuppressWarnings("deprecation")
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return blockUnsupported(url);
+                return (adBlockingEnabled && AdBlocker.isAdUrl(url)) || blockUnsupported(url);
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                // This callback runs off the UI thread. Never log or transmit page URLs.
+                if (adBlockingEnabled && AdBlocker.shouldBlockSubresource(
+                        request.getUrl().toString(), request.isForMainFrame())) {
+                    return new WebResourceResponse("text/plain", "UTF-8", 204, "No Content",
+                            Collections.emptyMap(), new ByteArrayInputStream(new byte[0]));
+                }
+                return null;
             }
 
             @Override
@@ -509,6 +535,11 @@ public final class MainActivity extends Activity {
             }
 
             @Override
+            public void onPageCommitVisible(WebView view, String url) {
+                injectAdBlockScript(view, url);
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 if (clearHistoryWhenBlank && HOME_URL.equals(url) && HOME_URL.equals(view.getUrl())) {
                     view.clearHistory();
@@ -517,8 +548,9 @@ public final class MainActivity extends Activity {
                 if (AddressResolver.isWebUrl(url) && url.equals(view.getUrl())) {
                     updateAddress(url);
                     updateSecurityLabel(url);
-                    // This script only adds visible focus cues and keyboard access for
-                    // non-semantic cards; it never exposes a native bridge to the page.
+                    injectAdBlockScript(view, url);
+                    // These scripts add focus cues and hide some floating ads; they
+                    // never expose a native bridge or send page data elsewhere.
                     if (focusSupportScript != null) view.evaluateJavascript(focusSupportScript, null);
                 }
                 updateNavigation();
@@ -597,16 +629,44 @@ public final class MainActivity extends Activity {
                 // Open a straightforward user-clicked target=_blank link in this window. Other
                 // pop-ups, scripts and separate windows are blocked rather than given a bridge.
                 WebView.HitTestResult hit = view.getHitTestResult();
+                String link = hit == null ? null : hit.getExtra();
+                if (adBlockingEnabled && AdBlocker.isAdUrl(link)) return false;
                 if (isUserGesture && hit != null && (hit.getType() == WebView.HitTestResult.SRC_ANCHOR_TYPE
                         || hit.getType() == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE)
-                        && AddressResolver.isWebUrl(hit.getExtra())) {
-                    openUrl(hit.getExtra());
+                        && AddressResolver.isWebUrl(link)) {
+                    openUrl(link);
                 } else if (isUserGesture) {
                     toast("This website needs a new window, which isn't supported yet.");
                 }
                 return false;
             }
         });
+    }
+
+    private void injectAdBlockScript(WebView view, String url) {
+        if (adBlockingEnabled && adBlockScript != null && AddressResolver.isWebUrl(url)
+                && url.equals(view.getUrl())) {
+            view.evaluateJavascript(adBlockScript, null);
+        }
+    }
+
+    private void updateAdBlockButton() {
+        adBlockButton.setText(adBlockingEnabled ? "BLOCK ON" : "BLOCK OFF");
+        adBlockButton.setContentDescription(adBlockingEnabled
+                ? "Ad blocking on; select to turn off" : "Ad blocking off; select to turn on");
+    }
+
+    private void toggleAdBlocking() {
+        adBlockingEnabled = !adBlockingEnabled;
+        getPreferencesFile().edit().putBoolean(BLOCK_ADS_KEY, adBlockingEnabled).apply();
+        updateAdBlockButton();
+        if (!showingHome && AddressResolver.isWebUrl(webView.getUrl())) {
+            errorPanel.setVisibility(View.GONE);
+            webView.reload();
+            toast(adBlockingEnabled ? "Ad blocking on. Reloading page." : "Ad blocking off. Reloading page.");
+        } else {
+            toast(adBlockingEnabled ? "Ad blocking on." : "Ad blocking off.");
+        }
     }
 
     private boolean blockUnsupported(String url) {

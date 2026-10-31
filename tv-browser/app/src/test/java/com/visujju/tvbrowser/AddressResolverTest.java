@@ -14,6 +14,12 @@ public class AddressResolverTest {
         assertEquals("https://[::1]:8080/", AddressResolver.resolve("[::1]:8080/"));
     }
 
+    @Test public void acceptsTheRequestedPvrPlayAddress() {
+        String url = "https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/";
+        assertEquals(url, AddressResolver.resolve(url));
+        assertTrue(AddressResolver.isWebUrl(url));
+    }
+
     @Test public void internationalHostnamesUseIdn() {
         assertEquals("https://xn--bcher-kva.de/", AddressResolver.resolve("bücher.de/"));
     }

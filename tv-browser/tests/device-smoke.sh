@@ -122,6 +122,22 @@ assert any(n.get('content-desc') == 'Return to full-screen page' and n.get('enab
 print('Toolbar and address focus verified')
 PY
 }
+focus_ad_toggle() {
+  adb shell input keyevent KEYCODE_MENU
+  show_focus
+  assert_toolbar
+  # From the address bar: GO, FULL, HOME, SAVE, SAVED, CLEAR, BLOCK.
+  adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT \
+    KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT
+  show_focus
+  python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+assert any(n.get('focused') == 'true' and n.get('content-desc', '').startswith('Ad blocking ')
+           for n in nodes), 'Ad-block toggle is not remote-focusable'
+print('Ad-block toggle is focused')
+PY
+}
 
 show_focus
 python3 - "$UI" <<'PY'
@@ -132,7 +148,8 @@ print('Home screen:', labels)
 assert any('TV BROWSER' in text for text, _, _ in labels), 'App home did not launch'
 assert any('Search or enter an address' in desc and focused == 'true'
            for _, desc, focused in labels), 'Home search is not initially focused'
-for label in ('Cinejoy.pk', 'PVRPlay.in', 'Netmirror.plus', 'Arena.ai'):
+assert any(desc == 'Ad blocking on; select to turn off' for _, desc, _ in labels), 'Ad blocking is not on by default'
+for label in ('Cinejoy.pk', 'PVRPlay', 'Netmirror.plus', 'Arena.ai'):
     assert any(n.get('content-desc', '').startswith(label + ',')
                and n.get('clickable') == 'true' and n.get('focusable') == 'true'
                for n in nodes), f'{label} shortcut is missing or not remote-focusable'
@@ -145,7 +162,7 @@ show_focus
 python3 - "$UI" <<'PY'
 import sys, xml.etree.ElementTree as ET
 nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
-labels = ('Cinejoy.pk,', 'PVRPlay.in,', 'Netmirror.plus,', 'Arena.ai,',
+labels = ('Cinejoy.pk,', 'PVRPlay,', 'Netmirror.plus,', 'Arena.ai,',
           'Google,', 'YouTube,', 'Wikipedia,', 'DuckDuckGo,')
 assert any(n.get('focused') == 'true' and n.get('content-desc', '').startswith(labels)
            for n in nodes), 'D-pad could not reach a shortcut from Home search'
@@ -168,8 +185,23 @@ wait_for_request '/'
 wait_for_title 'TV Browser remote test'
 wait_for_text 'TV focus ready'
 wait_for_text 'FOCUSED: none'
+wait_for_text 'AD: hidden'
+wait_for_text 'HELP: visible'
 show_focus
 assert_fullscreen
+
+# Ad filtering hides a marked floating ad, keeps a helpful panel, and can be
+# turned off and back on using only D-pad controls. Each toggle reloads the page.
+focus_ad_toggle
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'AD: visible'
+wait_for_text 'HELP: visible'
+focus_ad_toggle
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'AD: hidden'
+wait_for_text 'HELP: visible'
+wait_for_text 'TV focus ready'
+wait_for_text 'FOCUSED: none'
 
 # Start from an unfocused page whose HTML order differs from its visual grid.
 # Real D-pad events should follow geometry, not a fixed HTML/tab sequence.

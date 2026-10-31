@@ -14,6 +14,12 @@
     #fourth { grid-column: 2; grid-row: 2; }
     img { display: block; width: 220px; height: 160px; background: #287768; }
     .card span { display: block; padding: 12px; }
+    #filter-status, #help-status { position: fixed; right: 210px; margin: 0; font-size: 12px; }
+    #filter-status { top: 12px; }
+    #help-status { top: 32px; }
+    #floating-ad, #useful-panel { position: fixed; right: 16px; width: 180px; height: 70px; }
+    #floating-ad { top: 16px; background: #a53c3c; }
+    #useful-panel { bottom: 16px; background: #315475; }
   </style>
 </head>
 <body>
@@ -21,6 +27,10 @@
   <p id="focus-status">FOCUSED: none</p>
   <p id="helper-status">Preparing TV focus</p>
   <p id="spatial-status">SPATIAL: waiting</p>
+  <p id="filter-status">AD: checking</p>
+  <p id="help-status">HELP: checking</p>
+  <div id="floating-ad" class="ad-overlay" aria-label="Advertisement">Fake floating ad</div>
+  <div id="useful-panel">Helpful floating panel</div>
   <!-- The HTML order intentionally differs from the visual grid. -->
   <div class="grid">
     <a class="card" id="third" href="/clicked.html?via=third">
@@ -39,6 +49,16 @@
     </a>
   </div>
   <script>
+    var fakeAd = document.getElementById('floating-ad');
+    var usefulPanel = document.getElementById('useful-panel');
+    function updateAdStatus() {
+      document.getElementById('filter-status').textContent = 'AD: ' +
+        (getComputedStyle(fakeAd).display === 'none' ? 'hidden' : 'visible');
+      document.getElementById('help-status').textContent = 'HELP: ' +
+        (getComputedStyle(usefulPanel).display === 'none' ? 'hidden' : 'visible');
+    }
+    new MutationObserver(updateAdStatus).observe(fakeAd, {attributes: true, attributeFilter: ['style']});
+    updateAdStatus();
     document.addEventListener('focusin', function (event) {
       document.getElementById('focus-status').textContent = 'FOCUSED: ' + event.target.id;
     });
