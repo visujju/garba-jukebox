@@ -4,9 +4,22 @@ set -Eeuo pipefail
 UI="${RUNNER_TEMP:-/tmp}/lumen-tv-window.xml"
 trap 'echo "::error title=Lumen TV smoke test::Command failed at line $LINENO: $BASH_COMMAND"' ERR
 
+dump_ui() {
+  # UIAutomator occasionally loses its accessibility connection during TV
+  # emulator startup; a failed dump is not itself a failure of the app.
+  for attempt in 1 2 3 4; do
+    if adb shell uiautomator dump /sdcard/lumen-tv-window.xml >/dev/null 2>&1 \
+        && adb exec-out cat /sdcard/lumen-tv-window.xml > "$UI" \
+        && python3 -c 'import sys, xml.etree.ElementTree as e; e.parse(sys.argv[1])' "$UI" 2>/dev/null; then
+      return 0
+    fi
+    echo 'UIAutomator dump was unavailable; retrying.' >&2
+  done
+  return 1
+}
+
 show_focus() {
-  adb shell uiautomator dump /sdcard/lumen-tv-window.xml >/dev/null
-  adb exec-out cat /sdcard/lumen-tv-window.xml > "$UI"
+  dump_ui
   python3 - "$UI" <<'PY'
 import sys, xml.etree.ElementTree as ET
 nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
@@ -69,8 +82,11 @@ adb shell am start -W -n com.visujju.lumentv/.MainActivity
 wait_for_node() {
   local label="$1" focused="${2:-any}"
   for attempt in $(seq 1 12); do
-    adb shell uiautomator dump /sdcard/lumen-tv-window.xml >/dev/null
-    adb exec-out cat /sdcard/lumen-tv-window.xml > "$UI"
+    if [ "$attempt" -gt 1 ] && ! adb shell pidof com.visujju.lumentv >/dev/null; then
+      echo "::error title=Lumen TV process exited::App stopped while waiting for $label"
+      return 1
+    fi
+    if ! dump_ui; then continue; fi
     if python3 - "$UI" "$label" "$focused" <<'PY'
 import sys, xml.etree.ElementTree as ET
 nodes = ET.parse(sys.argv[1]).getroot().iter('node')
