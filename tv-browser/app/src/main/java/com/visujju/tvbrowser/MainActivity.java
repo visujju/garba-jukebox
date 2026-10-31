@@ -313,7 +313,7 @@ public final class MainActivity extends Activity {
         introduction.addView(description, descriptionParams);
 
         homeSearch = toolbarButton("SEARCH OR ENTER ADDRESS  →", "Search or enter an address", v -> focusAddress(true));
-        homeSearch.setTextSize(11);
+        homeSearch.setTextSize(12);
         homeSearch.setLetterSpacing(0.025f);
         homeSearch.setSingleLine(true);
         homeSearch.setTextColor(Color.rgb(7, 30, 34));
@@ -385,11 +385,11 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -1, 1);
         labelParams.leftMargin = dp(10);
         card.addView(labels, labelParams);
-        TextView name = text(title, 14, TEXT, true);
+        TextView name = text(title, 16, TEXT, true);
         name.setSingleLine(true);
         name.setEllipsize(TextUtils.TruncateAt.END);
         labels.addView(name, new LinearLayout.LayoutParams(-1, -2));
-        TextView detail = text(subtitle, 10, MUTED, false);
+        TextView detail = text(subtitle, 11, MUTED, false);
         detail.setSingleLine(true);
         detail.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
