@@ -24,7 +24,17 @@ cleanup() {
     show_focus || true
     cat "$UI" || true
     adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' || true
-    adb logcat -d -v time | grep -Ei 'lumentv|AndroidRuntime|FATAL EXCEPTION|WebView|chromium|process .* died|lmkd' | tail -200 || true
+    adb logcat -d -v time > "${RUNNER_TEMP:-/tmp}/lumen-tv-logcat.txt" || true
+    grep -Ei 'lumentv|AndroidRuntime|FATAL EXCEPTION|WebView|chromium|process .* died|lmkd' "${RUNNER_TEMP:-/tmp}/lumen-tv-logcat.txt" | tail -200 || true
+    python3 - "${RUNNER_TEMP:-/tmp}/lumen-tv-logcat.txt" <<'PY' || true
+import pathlib, re, sys
+lines = pathlib.Path(sys.argv[1]).read_text(errors='replace').splitlines()
+fatal = [i for i, line in enumerate(lines) if 'FATAL EXCEPTION' in line]
+stack = lines[fatal[-1]:fatal[-1] + 20] if fatal else []
+interesting = [line for line in lines if re.search(r'com\.visujju\.lumentv|permission denial|process .* died|lmkd', line, re.I)]
+text = ('\n'.join(stack + interesting[-16:]))[:3000]
+print('::notice title=Lumen TV Android log::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+PY
     # Surface a concise hierarchy in the check annotations as well as the log.
     python3 - "$UI" <<'PY' || true
 import sys, xml.etree.ElementTree as ET

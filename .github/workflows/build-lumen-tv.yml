@@ -58,15 +58,6 @@ jobs:
           ./gradlew :app:assembleDebug --no-daemon --stacktrace
           cp app/build/outputs/apk/debug/app-debug.apk Lumen-TV-debug.apk
           sha256sum Lumen-TV-debug.apk
-          echo "::notice title=Lumen APK SHA256::$(sha256sum Lumen-TV-debug.apk | cut -d' ' -f1)"
-      # Temporary one-time transfer into this development workspace.
-      - name: Transfer APK for direct delivery
-        working-directory: lumen-tv
-        continue-on-error: true
-        timeout-minutes: 2
-        env:
-          TRANSFER_URL: https://4174-iyqmvcwhddtsu0uz0s3t1.e2b.app/28vWZG-I48laECBK368vJv_IFlOq_qsL
-        run: curl --fail --silent --show-error --max-time 45 --data-binary @Lumen-TV-debug.apk "$TRANSFER_URL"
       - uses: actions/upload-artifact@v4
         with:
           name: Lumen-TV-APK

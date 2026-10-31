@@ -148,7 +148,7 @@ test('navigation rail, remote search and modal focus are keyboard accessible', a
     await page.keyboard.press('Enter');
     assert.equal(await page.locator('[data-page="live"]').isVisible(), true);
     await page.keyboard.press('Escape');
-    assert.equal((await current(page)).id, 'hero-details');
+    await page.waitForFunction(() => document.activeElement.id === 'hero-details');
   } finally { await browser.close(); }
 });
 
