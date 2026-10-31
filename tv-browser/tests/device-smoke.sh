@@ -24,6 +24,8 @@ adb shell pm disable-user --user 0 com.android.vending
 adb reverse "tcp:$PORT" "tcp:$PORT"
 adb logcat -c
 adb install -r tv-browser/app/build/outputs/apk/debug/app-debug.apk
+# Start with a clean app state even if a previous emulator attempt was interrupted.
+adb shell pm clear com.visujju.tvbrowser
 adb shell wm size 1920x1080
 adb shell wm density 320
 adb shell input keyevent KEYCODE_WAKEUP
