@@ -18,6 +18,9 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
+# Keep Play Store auto-updates from restarting Google Play Services (and
+# dependent apps) in the middle of this isolated, local-fixture test.
+adb shell pm disable-user --user 0 com.android.vending
 adb reverse "tcp:$PORT" "tcp:$PORT"
 adb logcat -c
 adb install -r tv-browser/app/build/outputs/apk/debug/app-debug.apk

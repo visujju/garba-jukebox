@@ -38,5 +38,6 @@ jobs:
           target: android-tv
           arch: x86
           profile: tv_1080p
+          ram-size: 2048M
           emulator-boot-timeout: 600
           script: bash tv-browser/tests/device-smoke.sh
