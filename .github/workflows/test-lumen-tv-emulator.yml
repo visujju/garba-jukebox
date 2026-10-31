@@ -40,4 +40,4 @@ jobs:
           profile: tv_1080p
           ram-size: 2048M
           emulator-boot-timeout: 600
-          script: bash lumen-tv/tests/device-smoke.sh
+          script: bash lumen-tv/tests/run-device-smoke.sh

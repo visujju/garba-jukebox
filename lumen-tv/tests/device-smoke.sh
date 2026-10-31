@@ -29,10 +29,12 @@ cleanup() {
     python3 - "${RUNNER_TEMP:-/tmp}/lumen-tv-logcat.txt" <<'PY' || true
 import pathlib, re, sys
 lines = pathlib.Path(sys.argv[1]).read_text(errors='replace').splitlines()
-fatal = [i for i, line in enumerate(lines) if 'FATAL EXCEPTION' in line]
-stack = lines[fatal[-1]:fatal[-1] + 20] if fatal else []
-interesting = [line for line in lines if re.search(r'com\.visujju\.lumentv|permission denial|process .* died|lmkd', line, re.I)]
-text = ('\n'.join(stack + interesting[-16:]))[:3000]
+fatal = [i for i, line in enumerate(lines) if 'FATAL EXCEPTION' in line or 'Fatal signal' in line]
+stack = lines[fatal[-1]:fatal[-1] + 14] if fatal else []
+interesting = [line[:220] for line in lines if re.search(
+    r'ActivityManager.*(Process .*has died|Killing|Start proc)|lmkd|permission denial', line, re.I)
+    and re.search(r'lumentv|gms|webview|lmkd|permission denial', line, re.I)]
+text = ('\n'.join(stack + interesting[-18:]))[:3000]
 print('::notice title=Lumen TV Android log::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
 PY
     # Surface a concise hierarchy in the check annotations as well as the log.
@@ -54,6 +56,8 @@ trap cleanup EXIT
 
 # System updates can restart Play Services during a test run.
 adb shell pm disable-user --user 0 com.android.vending || true
+# Allow first-boot Android TV services to finish starting before WebView loads.
+sleep 15
 adb logcat -c
 adb install -r lumen-tv/app/build/outputs/apk/debug/app-debug.apk
 adb shell pm clear com.visujju.lumentv

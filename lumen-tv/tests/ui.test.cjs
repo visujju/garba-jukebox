@@ -35,7 +35,11 @@ test.after(async () => {
   if (server) await new Promise(resolve => server.close(resolve));
 });
 
-const current = page => page.evaluate(() => ({ id: document.activeElement.id, label: document.activeElement.getAttribute('aria-label') }));
+// View and dialog transitions focus on the next animation frame. Wait for it
+// instead of assuming a particular speed of the host or WebView.
+const focusId = (page, id) => page.waitForFunction(value => document.activeElement?.id === value, id);
+const focusLabel = (page, label) => page.waitForFunction(value => document.activeElement?.getAttribute('aria-label') === value, label);
+const focusText = (page, text) => page.waitForFunction(value => document.activeElement?.textContent.trim() === value, text);
 
 async function open(page) {
   await page.goto(base, { waitUntil: 'networkidle' });
@@ -56,22 +60,22 @@ test('D-pad focus, details, search, filters, saved titles, settings, and Back wo
 
     // Arrow keys move between on-screen controls, rather than a fixed tab order.
     await page.keyboard.press('ArrowRight');
-    assert.equal((await current(page)).id, 'hero-save');
+    await focusId(page, 'hero-save');
     await page.keyboard.press('Enter');
     assert.equal(await page.locator('#saved-count').innerText(), '1');
     await page.keyboard.press('ArrowLeft');
-    assert.equal((await current(page)).id, 'hero-details');
+    await focusId(page, 'hero-details');
     await page.keyboard.press('ArrowDown');
-    assert.equal((await current(page)).label, 'Midnight District, Series, open details');
+    await focusLabel(page, 'Midnight District, Series, open details');
     await page.keyboard.press('ArrowRight');
-    assert.equal((await current(page)).label, 'Northbound, Movie, open details');
+    await focusLabel(page, 'Northbound, Movie, open details');
     await page.keyboard.press('Enter');
     await page.waitForSelector('#details-dialog:not([hidden])');
     assert.equal(await page.locator('#detail-title').innerText(), 'Northbound');
     assert.match(await page.locator('.dialog-notice').innerText(), /No video is available/);
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#dialog-backdrop').isHidden(), true);
-    assert.equal((await current(page)).label, 'Northbound, Movie, open details');
+    await focusLabel(page, 'Northbound, Movie, open details');
 
     await page.locator('.nav-item[data-nav="search"]').click();
     await page.waitForSelector('[data-page="search"]:not([hidden])');
@@ -79,7 +83,7 @@ test('D-pad focus, details, search, filters, saved titles, settings, and Back wo
     assert.equal(await page.locator('#search-results .title-card').count(), 1);
     assert.equal(await page.locator('#search-results .card-title').innerText(), 'Wild Earth');
     await page.locator('#search-input').press('ArrowDown');
-    assert.equal((await current(page)).label, 'Wild Earth, Series, open details');
+    await focusLabel(page, 'Wild Earth, Series, open details');
     await page.keyboard.press('Enter');
     await page.locator('#detail-save').click();
     assert.equal(await page.locator('#saved-count').innerText(), '2');
@@ -123,28 +127,28 @@ test('navigation rail, remote search and modal focus are keyboard accessible', a
   try {
     await open(page);
     await page.keyboard.press('ArrowLeft');
-    assert.equal(await page.evaluate(() => document.activeElement.textContent.trim()), 'Movies');
+    await focusText(page, 'Movies');
     await page.keyboard.press('ArrowUp');
-    assert.equal(await page.evaluate(() => document.activeElement.textContent.trim()), 'Search');
+    await focusText(page, 'Search');
     await page.keyboard.press('Enter');
-    assert.equal((await current(page)).id, 'search-input');
+    await focusId(page, 'search-input');
     await page.keyboard.type('slow');
     await page.keyboard.press('ArrowDown');
-    assert.equal((await current(page)).label, 'Slow Burn, Series, open details');
+    await focusLabel(page, 'Slow Burn, Series, open details');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.activeElement.id === 'detail-save');
     await page.keyboard.press('ArrowRight');
-    assert.equal(await page.evaluate(() => document.activeElement.textContent.trim()), 'Back to browse');
+    await focusText(page, 'Back to browse');
     await page.keyboard.press('Tab');
-    assert.equal((await current(page)).label, 'Close title details');
+    await focusLabel(page, 'Close title details');
     await page.keyboard.press('Shift+Tab');
-    assert.equal(await page.evaluate(() => document.activeElement.textContent.trim()), 'Back to browse');
+    await focusText(page, 'Back to browse');
     await page.keyboard.press('Escape');
-    assert.equal((await current(page)).label, 'Slow Burn, Series, open details');
+    await focusLabel(page, 'Slow Burn, Series, open details');
     await page.keyboard.press('ArrowLeft');
-    assert.equal(await page.evaluate(() => document.activeElement.textContent.trim()), 'Settings');
+    await focusText(page, 'Settings');
     await page.keyboard.press('ArrowUp');
-    assert.equal(await page.evaluate(() => document.activeElement.textContent.trim()), 'Live TV');
+    await focusText(page, 'Live TV');
     await page.keyboard.press('Enter');
     assert.equal(await page.locator('[data-page="live"]').isVisible(), true);
     await page.keyboard.press('Escape');
