@@ -44,6 +44,7 @@ import android.webkit.WebViewClient;
 import android.webkit.WebViewDatabase;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -84,6 +85,7 @@ public final class MainActivity extends Activity {
     private LinearLayout shell;
     private LinearLayout header;
     private LinearLayout toolbar;
+    private HorizontalScrollView toolbarScroller;
     private LinearLayout footer;
     private FrameLayout viewport;
     private LinearLayout.LayoutParams viewportParams;
@@ -116,6 +118,7 @@ public final class MainActivity extends Activity {
     private volatile boolean adBlockingEnabled;
     private String focusSupportScript;
     private String adBlockScript;
+    private BrowserDownloads downloads;
 
     private final Runnable holdBackAction = () -> {
         if (isFinishing()) return;
@@ -131,6 +134,7 @@ public final class MainActivity extends Activity {
                 | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
         adBlockingEnabled = getPreferencesFile().getBoolean(BLOCK_ADS_KEY, true);
+        downloads = new BrowserDownloads(this, getPreferencesFile());
         focusSupportScript = loadAssetScript("tv_focus.js");
         adBlockScript = loadAssetScript("tv_adblock.js");
         buildInterface();
@@ -170,12 +174,19 @@ public final class MainActivity extends Activity {
         byline.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         header.addView(byline, new LinearLayout.LayoutParams(0, -1, 1));
 
+        // Allow smaller TV displays to scroll to every control instead of crushing the address bar.
+        toolbarScroller = new HorizontalScrollView(this);
+        toolbarScroller.setFillViewport(true);
+        toolbarScroller.setHorizontalScrollBarEnabled(false);
+        toolbarScroller.setFocusable(false);
+        LinearLayout.LayoutParams toolbarParams = new LinearLayout.LayoutParams(-1, dp(48));
+        toolbarParams.topMargin = dp(14);
+        shell.addView(toolbarScroller, toolbarParams);
         toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.HORIZONTAL);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams toolbarParams = new LinearLayout.LayoutParams(-1, dp(48));
-        toolbarParams.topMargin = dp(14);
-        shell.addView(toolbar, toolbarParams);
+        toolbar.setMinimumWidth(dp(900));
+        toolbarScroller.addView(toolbar, new HorizontalScrollView.LayoutParams(-1, -1));
 
         backButton = toolbarButton("←", "Back", v -> goBack());
         forwardButton = toolbarButton("→", "Forward", v -> {
@@ -223,6 +234,7 @@ public final class MainActivity extends Activity {
         addToolbarItem(toolbar, toolbarButton("CLEAR", "Clear browsing data", v -> confirmClearData()), 63);
         adBlockButton = toolbarButton("BLOCK ON", "Ad blocking on; select to turn off", v -> toggleAdBlocking());
         addToolbarItem(toolbar, adBlockButton, 77);
+        addToolbarItem(toolbar, toolbarButton("FILES", "Show downloads", v -> downloads.showDownloads()), 62);
         updateAdBlockButton();
 
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
@@ -581,7 +593,7 @@ public final class MainActivity extends Activity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
         webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) ->
-                toast("Downloads aren't available in this version."));
+                downloads.offer(url, userAgent, contentDisposition, mimeType, contentLength, adBlockingEnabled));
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -815,7 +827,7 @@ public final class MainActivity extends Activity {
     private void setBrowserChromeVisible(boolean visible) {
         chromeVisible = visible;
         header.setVisibility(visible ? View.VISIBLE : View.GONE);
-        toolbar.setVisibility(visible ? View.VISIBLE : View.GONE);
+        toolbarScroller.setVisibility(visible ? View.VISIBLE : View.GONE);
         footer.setVisibility(visible ? View.VISIBLE : View.GONE);
         progress.setVisibility(!visible ? View.GONE
                 : !showingHome && webView.getProgress() < 100 ? View.VISIBLE : View.INVISIBLE);
@@ -1220,8 +1232,15 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (downloads != null) downloads.onRequestPermissionsResult(requestCode, grantResults);
+    }
+
+    @Override
     protected void onDestroy() {
         handler.removeCallbacks(holdBackAction);
+        if (downloads != null) downloads.destroy();
         if (videoView != null) hideFullscreenVideo();
         if (webView != null) {
             webView.stopLoading();

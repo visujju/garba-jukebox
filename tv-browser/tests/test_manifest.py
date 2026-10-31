@@ -35,6 +35,14 @@ class ManifestTests(unittest.TestCase):
         self.assertTrue((MAIN / "res/drawable/ic_launcher.xml").exists())
         self.assertTrue((MAIN / "res/drawable-xhdpi/tv_banner.png").exists())
 
+    def test_download_permissions_are_scoped(self):
+        permissions = {p.get(ANDROID + "name"): p for p in self.root.findall("uses-permission")}
+        storage = permissions.get("android.permission.WRITE_EXTERNAL_STORAGE")
+        self.assertIsNotNone(storage)
+        self.assertEqual("28", storage.get(ANDROID + "maxSdkVersion"))
+        self.assertIn("android.permission.REQUEST_INSTALL_PACKAGES", permissions)
+        self.assertNotIn("android.permission.MANAGE_EXTERNAL_STORAGE", permissions)
+
     def test_internet_access_and_private_backup_choice(self):
         permissions = {p.get(ANDROID + "name") for p in self.root.findall("uses-permission")}
         self.assertIn("android.permission.INTERNET", permissions)

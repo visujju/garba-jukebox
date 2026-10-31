@@ -360,6 +360,101 @@ assert any(n.get('content-desc') == 'Search or enter an address' and n.get('focu
 print('Error screen recovery verified')
 PY
 
+# Exercise real DownloadManager downloads with a local fixture. The first link
+# is deliberately not an APK; it only checks the warning and safe default.
+adb shell 'rm -f /sdcard/Download/tv-browser-fixture-*.bin /sdcard/Download/tv-browser-fake-*.apk'
+adb shell input keyevent KEYCODE_DPAD_CENTER
+adb shell input text "http://127.0.0.1:$PORT/download.html"
+adb shell input keyevent KEYCODE_ENTER
+wait_for_title 'TV Browser download test'
+wait_for_text 'Download fixtures'
+adb shell input keyevent KEYCODE_DPAD_DOWN
+show_focus
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'Download file?'
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+assert any('This is an app installer (APK)' in n.get('text', '') for n in nodes), 'APK warning missing'
+assert any(n.get('text', '').lower() == 'cancel' and n.get('focused') == 'true'
+           for n in nodes), 'Download confirmation should default to Cancel'
+assert any('unencrypted HTTP' in n.get('text', '') for n in nodes), 'HTTP download warning missing'
+print('APK and HTTP warnings verified; Cancel is focused')
+PY
+adb shell input keyevent KEYCODE_DPAD_CENTER
+# Cancel must not enqueue the fake APK.
+if adb shell ls /sdcard/Download/ | tr -d '\r' | grep -q '^tv-browser-fake-'; then
+  echo 'Cancelling unexpectedly created a fake APK in Downloads'; exit 1
+fi
+
+# Download the harmless binary fixture after explicitly selecting Download.
+adb shell input keyevent KEYCODE_DPAD_DOWN
+show_focus
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'Download file?'
+show_focus
+adb shell input keyevent KEYCODE_DPAD_RIGHT
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any(n.get('text', '').lower() == 'download' and n.get('focused') == 'true'
+           for n in nodes), 'Could not focus Download with the D-pad'
+PY
+adb shell input keyevent KEYCODE_DPAD_CENTER
+file=''
+for attempt in $(seq 1 30); do
+  file=$(adb shell ls /sdcard/Download/ | tr -d '\r' | grep -E '^tv-browser-fixture-[0-9a-f]{8}\.bin$' | head -1 || true)
+  if [ -n "$file" ]; then
+    adb exec-out cat "/sdcard/Download/$file" > "${RUNNER_TEMP:-/tmp}/tv-browser-downloaded.bin" || true
+    if cmp -s tv-browser/tests/fixtures/tv-browser-fixture.bin "${RUNNER_TEMP:-/tmp}/tv-browser-downloaded.bin"; then break; fi
+  fi
+  sleep 1
+done
+if [ -z "$file" ] || ! cmp -s tv-browser/tests/fixtures/tv-browser-fixture.bin "${RUNNER_TEMP:-/tmp}/tv-browser-downloaded.bin"; then
+  echo 'The confirmed fixture download did not complete'; exit 1
+fi
+printf 'Confirmed fixture download saved to Downloads: %s\n' "$file"
+
+# FILES must be reachable from the toolbar and display the completed download.
+adb shell input keyevent KEYCODE_MENU
+show_focus
+assert_toolbar
+adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT \
+  KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any(n.get('content-desc') == 'Show downloads' and n.get('focused') == 'true'
+           for n in nodes), 'FILES is not reachable using the remote'
+PY
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'Downloads'
+listed=false
+for attempt in $(seq 1 10); do
+  show_focus
+  if python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+sys.exit(0 if any('tv-browser-fixture-' in n.get('text', '') and 'Complete' in n.get('text', '')
+                  for n in nodes) else 1)
+PY
+  then
+    listed=true
+    break
+  fi
+  # Close and reopen FILES while Android finishes updating its status.
+  adb shell input keyevent KEYCODE_BACK
+  sleep 1
+  adb shell input keyevent KEYCODE_DPAD_CENTER
+  wait_for_text 'Downloads'
+done
+if [ "$listed" != true ]; then echo 'Completed file is missing from FILES'; exit 1; fi
+echo 'Download list verified'
+adb shell input keyevent KEYCODE_BACK
+
 # There must be no fatal app exception during the interaction.
 if adb logcat -d -s AndroidRuntime:E | grep -Fq 'FATAL EXCEPTION'; then
   adb logcat -d -s AndroidRuntime:E
