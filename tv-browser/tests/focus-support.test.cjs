@@ -39,7 +39,12 @@ test('adds focus only where needed and keeps normal web controls intact', () => 
     assert.equal(attr(id), null, `${id} should not get an extra focus stop`);
   }
   assert.equal(attr('explicit'), '-1', 'explicit negative tabindex must be preserved');
-  assert.match(doc.querySelector('style').textContent, /outline:4px solid #7ef0cd/);
+  const focusStyle = doc.querySelector('style').textContent;
+  assert.match(focusStyle, /outline:4px solid #7ef0cd/);
+  assert.match(focusStyle, /iframe:focus/);
+  assert.match(focusStyle, /video\[controls\]:focus/);
+  assert.match(focusStyle, /\[contenteditable="true"\]:focus/);
+  assert.match(focusStyle, /box-shadow:0 0 0 2px #102036,0 0 0 6px/);
   dom.window.eval(script);
   assert.equal(doc.querySelectorAll('style').length, 1, 're-injection should be idempotent');
   dom.window.close();

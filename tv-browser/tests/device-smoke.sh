@@ -142,20 +142,46 @@ PY
 }
 
 show_focus
+# Optional visual diagnostic for the isolated emulator (contains no user data).
+if [ "${TV_BROWSER_CAPTURE_HOME:-0}" = 1 ]; then
+  adb exec-out screencap -p > "${RUNNER_TEMP:-/tmp}/tv-browser-home.png"
+  cat > "${RUNNER_TEMP:-/tmp}/ScaleScreenshot.java" <<'JAVA'
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import javax.imageio.ImageIO;
+class ScaleScreenshot {
+    public static void main(String[] args) throws Exception {
+        BufferedImage original = ImageIO.read(new File(args[0]));
+        BufferedImage scaled = new BufferedImage(720, 405, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = scaled.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        graphics.drawImage(original, 0, 0, 720, 405, null);
+        graphics.dispose();
+        ImageIO.write(scaled, "jpg", new File(args[1]));
+    }
+}
+JAVA
+  java -Djava.awt.headless=true "${RUNNER_TEMP:-/tmp}/ScaleScreenshot.java" "${RUNNER_TEMP:-/tmp}/tv-browser-home.png" "${RUNNER_TEMP:-/tmp}/tv-browser-home.jpg"
+  printf '::notice file=tv-browser/README.md,line=1,title=TV home screenshot::%s\n' "$(base64 -w0 "${RUNNER_TEMP:-/tmp}/tv-browser-home.jpg")"
+fi
 python3 - "$UI" <<'PY'
 import sys, xml.etree.ElementTree as ET
 nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
 labels = [(n.get('text', ''), n.get('content-desc', ''), n.get('focused', '')) for n in nodes]
 print('Home screen:', labels)
 assert any('TV BROWSER' in text for text, _, _ in labels), 'App home did not launch'
+assert any('made bigger.' in text for text, _, _ in labels), 'Home headline is missing'
 assert any('Search or enter an address' in desc and focused == 'true'
            for _, desc, focused in labels), 'Home search is not initially focused'
 assert any(desc == 'Ad blocking on; select to turn off' for _, desc, _ in labels), 'Ad blocking is not on by default'
-for label in ('Cinejoy.pk', 'PVRPlay', 'Netmirror.plus', 'Arena.ai'):
+for label in ('Cinejoy.pk', 'PVRPlay', 'Netmirror.plus', 'Arena.ai',
+              'Google', 'YouTube', 'Wikipedia', 'DuckDuckGo'):
     assert any(n.get('content-desc', '').startswith(label + ',')
                and n.get('clickable') == 'true' and n.get('focusable') == 'true'
                for n in nodes), f'{label} shortcut is missing or not remote-focusable'
-print('Requested shortcuts are available on Home')
+print('Home headline and all shortcuts are available')
 PY
 
 # Check that the D-pad can leave the Home search for the shortcut grid and return.
@@ -169,6 +195,37 @@ labels = ('Cinejoy.pk,', 'PVRPlay,', 'Netmirror.plus,', 'Arena.ai,',
 assert any(n.get('focused') == 'true' and n.get('content-desc', '').startswith(labels)
            for n in nodes), 'D-pad could not reach a shortcut from Home search'
 print('D-pad reached the shortcut grid')
+PY
+# Each row has two cards. Verify a right-and-left round trip without losing focus.
+first_card=$(python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+print(next(n.get('content-desc', '') for n in nodes if n.get('focused') == 'true'))
+PY
+)
+case "$first_card" in
+  'Cinejoy.pk,'*) second_card='PVRPlay,' ;;
+  'Netmirror.plus,'*) second_card='Arena.ai,' ;;
+  'Google,'*) second_card='YouTube,' ;;
+  'Wikipedia,'*) second_card='DuckDuckGo,' ;;
+  *) echo "Expected the first card in a row, found: $first_card"; exit 1 ;;
+esac
+adb shell input keyevent KEYCODE_DPAD_RIGHT
+show_focus
+python3 - "$UI" "$second_card" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any(n.get('focused') == 'true' and n.get('content-desc', '').startswith(sys.argv[2])
+           for n in nodes), 'D-pad did not reach the neighboring shortcut'
+print('D-pad reached the neighboring shortcut')
+PY
+adb shell input keyevent KEYCODE_DPAD_LEFT
+show_focus
+python3 - "$UI" "$first_card" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any(n.get('focused') == 'true' and n.get('content-desc') == sys.argv[2]
+           for n in nodes), 'D-pad did not return to the first shortcut'
 PY
 adb shell input keyevent KEYCODE_DPAD_LEFT
 show_focus

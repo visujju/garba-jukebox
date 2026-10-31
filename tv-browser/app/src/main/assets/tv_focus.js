@@ -13,9 +13,11 @@
         + '[role="link"],[tabindex],[onclick]';
     var style = document.createElement('style');
     style.textContent = 'a[href]:focus,button:focus,input:focus,select:focus,textarea:focus,'
-        + 'summary:focus,[role="button"]:focus,[role="link"]:focus,[tabindex]:focus {'
+        + 'summary:focus,iframe:focus,video[controls]:focus,audio[controls]:focus,'
+        + '[contenteditable=""]:focus,[contenteditable="true"]:focus,'
+        + '[role="button"]:focus,[role="link"]:focus,[tabindex]:focus {'
         + 'outline:4px solid #7ef0cd !important;outline-offset:-4px !important;'
-        + 'box-shadow:0 0 0 2px #102036 !important;}';
+        + 'box-shadow:0 0 0 2px #102036,0 0 0 6px rgba(126,240,205,.35) !important;}';
     (document.head || document.documentElement).appendChild(style);
 
     function visible(element) {

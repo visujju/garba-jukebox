@@ -19,6 +19,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -43,6 +44,7 @@ import android.webkit.WebViewClient;
 import android.webkit.WebViewDatabase;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
@@ -65,11 +67,11 @@ import java.util.Locale;
 
 /** A standalone, remote-first WebView browser. No JavaScript bridge is exposed to pages. */
 public final class MainActivity extends Activity {
-    private static final int INK = Color.rgb(9, 16, 31);
-    private static final int PANEL = Color.rgb(17, 29, 46);
-    private static final int SURFACE = Color.rgb(29, 43, 63);
-    private static final int TEXT = Color.rgb(242, 248, 248);
-    private static final int MUTED = Color.rgb(157, 181, 192);
+    private static final int INK = Color.rgb(8, 14, 27);
+    private static final int PANEL = Color.rgb(14, 25, 40);
+    private static final int SURFACE = Color.rgb(25, 39, 55);
+    private static final int TEXT = Color.rgb(244, 249, 249);
+    private static final int MUTED = Color.rgb(164, 183, 193);
     private static final int ACCENT = Color.rgb(126, 240, 205);
     private static final String PREFS = "tv_browser";
     private static final String SAVED_KEY = "saved_pages";
@@ -145,7 +147,7 @@ public final class MainActivity extends Activity {
         shell.setOrientation(LinearLayout.VERTICAL);
         shell.setPadding(dp(30), dp(17), dp(30), dp(14));
         shell.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.rgb(16, 31, 48), INK, Color.rgb(9, 20, 32)}));
+                new int[]{Color.rgb(16, 28, 43), INK, Color.rgb(8, 19, 31)}));
         root.addView(shell, new FrameLayout.LayoutParams(-1, -1));
 
         header = new LinearLayout(this);
@@ -153,16 +155,18 @@ public final class MainActivity extends Activity {
         header.setGravity(Gravity.CENTER_VERTICAL);
         shell.addView(header, new LinearLayout.LayoutParams(-1, dp(38)));
 
-        TextView mark = text("◎", 24, INK, true);
-        mark.setGravity(Gravity.CENTER);
-        mark.setBackground(rounded(ACCENT, 12, 0, 0));
+        ImageView mark = new ImageView(this);
+        mark.setImageResource(R.drawable.ic_launcher);
+        mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         header.addView(mark, new LinearLayout.LayoutParams(dp(38), dp(38)));
-        TextView brand = text("TV BROWSER", 18, TEXT, true);
+        TextView brand = text("TV BROWSER", 16, TEXT, true);
+        brand.setLetterSpacing(0.06f);
         LinearLayout.LayoutParams brandParams = new LinearLayout.LayoutParams(-2, -1);
         brandParams.leftMargin = dp(11);
         brand.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(brand, brandParams);
-        TextView byline = text("THE WEB, MADE FOR YOUR TV", 10, MUTED, true);
+        TextView byline = text("YOUR WINDOW TO THE WEB", 10, MUTED, true);
+        byline.setLetterSpacing(0.09f);
         byline.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         header.addView(byline, new LinearLayout.LayoutParams(0, -1, 1));
 
@@ -268,49 +272,80 @@ public final class MainActivity extends Activity {
     }
 
     private View buildHomePanel() {
+        FrameLayout background = new FrameLayout(this);
+        background.setBackground(rounded(PANEL, 18, 0, 0));
+        background.setClipToOutline(true);
+
+        ImageView atmosphere = new ImageView(this);
+        atmosphere.setImageResource(R.drawable.home_atmosphere);
+        atmosphere.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        atmosphere.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        background.addView(atmosphere, new FrameLayout.LayoutParams(-1, -1));
+        View scrim = new View(this);
+        scrim.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0xE906101D, 0xA5091826, 0xCB08131F}));
+        background.addView(scrim, new FrameLayout.LayoutParams(-1, -1));
+
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.HORIZONTAL);
         panel.setGravity(Gravity.CENTER_VERTICAL);
-        panel.setPadding(dp(36), dp(25), dp(36), dp(25));
-        panel.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.rgb(22, 44, 60), Color.rgb(15, 27, 43), Color.rgb(13, 24, 39)}));
+        panel.setPadding(dp(36), dp(20), dp(36), dp(20));
+        background.addView(panel, new FrameLayout.LayoutParams(-1, -1));
 
         LinearLayout introduction = new LinearLayout(this);
         introduction.setOrientation(LinearLayout.VERTICAL);
         introduction.setGravity(Gravity.CENTER_VERTICAL);
-        panel.addView(introduction, new LinearLayout.LayoutParams(0, -1, 1.05f));
-        TextView eyebrow = text("BROWSE BIGGER", 11, ACCENT, true);
+        panel.addView(introduction, new LinearLayout.LayoutParams(0, -1, 0.93f));
+
+        TextView eyebrow = text("WELCOME TO TV BROWSER", 10, ACCENT, true);
+        eyebrow.setLetterSpacing(0.12f);
         introduction.addView(eyebrow);
-        TextView headline = text("The web,\non your TV.", 35, TEXT, true);
-        headline.setLineSpacing(dp(2), 1.0f);
+        TextView headline = text("The web,\nmade bigger.", 34, TEXT, true);
+        headline.setLineSpacing(dp(1), 1.0f);
         LinearLayout.LayoutParams headlineParams = new LinearLayout.LayoutParams(-1, -2);
         headlineParams.topMargin = dp(10);
         introduction.addView(headline, headlineParams);
-        TextView description = text("Search, discover and visit your favorite sites with your remote.", 14, MUTED, false);
+        TextView description = text("Your favorite websites, right here on the big screen.", 14, MUTED, false);
         description.setLineSpacing(dp(3), 1.0f);
         LinearLayout.LayoutParams descriptionParams = new LinearLayout.LayoutParams(-1, -2);
-        descriptionParams.topMargin = dp(12);
-        descriptionParams.rightMargin = dp(26);
+        descriptionParams.topMargin = dp(10);
+        descriptionParams.rightMargin = dp(32);
         introduction.addView(description, descriptionParams);
+
         homeSearch = toolbarButton("SEARCH OR ENTER ADDRESS  →", "Search or enter an address", v -> focusAddress(true));
-        homeSearch.setTextSize(12);
-        LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(dp(230), dp(46));
-        searchParams.topMargin = dp(22);
+        homeSearch.setTextSize(11);
+        homeSearch.setLetterSpacing(0.025f);
+        homeSearch.setSingleLine(true);
+        homeSearch.setTextColor(Color.rgb(7, 30, 34));
+        homeSearch.setBackground(primaryButtonBackground());
+        LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(dp(230), dp(48));
+        searchParams.topMargin = dp(21);
         introduction.addView(homeSearch, searchParams);
+        TextView remoteHint = text("ARROWS TO MOVE   ·   OK TO OPEN", 10, MUTED, true);
+        remoteHint.setLetterSpacing(0.035f);
+        LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
+        hintParams.topMargin = dp(16);
+        introduction.addView(remoteHint, hintParams);
 
         ScrollView linksScroll = new ScrollView(this);
         linksScroll.setFillViewport(true);
         linksScroll.setVerticalScrollBarEnabled(false);
         linksScroll.setFocusable(false);
-        LinearLayout.LayoutParams linksParams = new LinearLayout.LayoutParams(0, -1, 1.0f);
-        linksParams.leftMargin = dp(15);
+        linksScroll.setClipToPadding(false);
+        LinearLayout.LayoutParams linksParams = new LinearLayout.LayoutParams(0, -1, 1.07f);
+        linksParams.leftMargin = dp(20);
         panel.addView(linksScroll, linksParams);
         LinearLayout quickLinks = new LinearLayout(this);
         quickLinks.setOrientation(LinearLayout.VERTICAL);
         quickLinks.setGravity(Gravity.CENTER_VERTICAL);
         linksScroll.addView(quickLinks, new ScrollView.LayoutParams(-1, -2));
-        TextView quickHeading = text("QUICK LINKS", 11, MUTED, true);
+
+        TextView quickEyebrow = text("READY WHEN YOU ARE", 10, ACCENT, true);
+        quickEyebrow.setLetterSpacing(0.09f);
+        quickLinks.addView(quickEyebrow);
+        TextView quickHeading = text("Your shortcuts", 19, TEXT, true);
         LinearLayout.LayoutParams headingParams = new LinearLayout.LayoutParams(-1, -2);
+        headingParams.topMargin = dp(4);
         headingParams.bottomMargin = dp(10);
         quickLinks.addView(quickHeading, headingParams);
         addQuickLinkRow(quickLinks,
@@ -325,77 +360,127 @@ public final class MainActivity extends Activity {
         addQuickLinkRow(quickLinks,
                 quickLink("Wikipedia", "Learn something new", "https://www.wikipedia.org/"),
                 quickLink("DuckDuckGo", "Search the web", "https://duckduckgo.com/"));
-        return panel;
+        return background;
     }
 
     private View quickLink(String title, String subtitle, String url) {
         LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
+        card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setPadding(dp(17), dp(10), dp(12), dp(10));
+        card.setPadding(dp(10), dp(7), dp(10), dp(7));
         card.setBackground(cardBackground());
         card.setFocusable(true);
         card.setClickable(true);
         card.setContentDescription(title + ", " + subtitle);
         card.setOnClickListener(v -> openUrl(url));
-        TextView name = text(title, 16, TEXT, true);
-        card.addView(name, new LinearLayout.LayoutParams(-1, -2));
-        TextView detail = text(subtitle, 11, MUTED, false);
+
+        TextView badge = text(title.substring(0, 1).toUpperCase(Locale.ROOT), 16, TEXT, true);
+        badge.setGravity(Gravity.CENTER);
+        badge.setBackground(rounded(shortcutColor(title), 9, 0, 0));
+        badge.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        card.addView(badge, new LinearLayout.LayoutParams(dp(34), dp(34)));
+        LinearLayout labels = new LinearLayout(this);
+        labels.setOrientation(LinearLayout.VERTICAL);
+        labels.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -1, 1);
+        labelParams.leftMargin = dp(10);
+        card.addView(labels, labelParams);
+        TextView name = text(title, 14, TEXT, true);
+        name.setSingleLine(true);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        labels.addView(name, new LinearLayout.LayoutParams(-1, -2));
+        TextView detail = text(subtitle, 10, MUTED, false);
+        detail.setSingleLine(true);
+        detail.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
         detailParams.topMargin = dp(3);
-        card.addView(detail, detailParams);
+        labels.addView(detail, detailParams);
+        TextView arrow = text("↗", 16, MUTED, false);
+        arrow.setGravity(Gravity.CENTER);
+        arrow.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        card.addView(arrow, new LinearLayout.LayoutParams(dp(18), dp(30)));
         return card;
+    }
+
+    private int shortcutColor(String title) {
+        switch (title) {
+            case "Cinejoy.pk": return Color.rgb(99, 48, 67);
+            case "PVRPlay": return Color.rgb(61, 71, 115);
+            case "Netmirror.plus": return Color.rgb(88, 65, 113);
+            case "Arena.ai": return Color.rgb(33, 99, 85);
+            case "Google": return Color.rgb(43, 83, 123);
+            case "YouTube": return Color.rgb(112, 48, 52);
+            case "Wikipedia": return Color.rgb(74, 85, 97);
+            default: return Color.rgb(111, 75, 48);
+        }
     }
 
     private void addQuickLinkRow(LinearLayout parent, View first, View second) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(65));
-        rowParams.bottomMargin = dp(8);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(58));
+        rowParams.bottomMargin = dp(7);
         parent.addView(row, rowParams);
         LinearLayout.LayoutParams firstParams = new LinearLayout.LayoutParams(0, -1, 1);
-        firstParams.rightMargin = dp(9);
+        firstParams.rightMargin = dp(8);
         row.addView(first, firstParams);
         row.addView(second, new LinearLayout.LayoutParams(0, -1, 1));
     }
 
     private View buildErrorPanel() {
+        FrameLayout background = new FrameLayout(this);
+        background.setBackgroundColor(PANEL);
+        ImageView atmosphere = new ImageView(this);
+        atmosphere.setImageResource(R.drawable.home_atmosphere);
+        atmosphere.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        atmosphere.setAlpha(0.22f);
+        atmosphere.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        background.addView(atmosphere, new FrameLayout.LayoutParams(-1, -1));
+
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setGravity(Gravity.CENTER);
-        panel.setPadding(dp(35), dp(20), dp(35), dp(20));
-        panel.setBackgroundColor(PANEL);
-        TextView title = text("This page couldn't be opened", 25, TEXT, true);
+        panel.setPadding(dp(36), dp(28), dp(36), dp(28));
+        panel.setBackground(rounded(0xF2142332, 18, 0x664F7480, 1));
+        int panelWidth = Math.min(dp(500), getResources().getDisplayMetrics().widthPixels - dp(40));
+        FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(panelWidth, -2, Gravity.CENTER);
+        panelParams.setMargins(dp(20), dp(20), dp(20), dp(20));
+        background.addView(panel, panelParams);
+        TextView symbol = text("!", 20, ACCENT, true);
+        symbol.setGravity(Gravity.CENTER);
+        symbol.setBackground(rounded(Color.rgb(30, 64, 68), 14, 0, 0));
+        panel.addView(symbol, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        TextView title = text("This page couldn't be opened", 22, TEXT, true);
         title.setGravity(Gravity.CENTER);
-        panel.addView(title);
-        errorMessage = text("Check the address and internet connection, then try again.", 14, MUTED, false);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
+        titleParams.topMargin = dp(13);
+        panel.addView(title, titleParams);
+        errorMessage = text("Check the address and your internet connection, then try again.", 14, MUTED, false);
         errorMessage.setGravity(Gravity.CENTER);
+        errorMessage.setLineSpacing(dp(3), 1f);
         LinearLayout.LayoutParams messageParams = new LinearLayout.LayoutParams(-1, -2);
-        messageParams.topMargin = dp(12);
+        messageParams.topMargin = dp(8);
         panel.addView(errorMessage, messageParams);
-        LinearLayout buttons = new LinearLayout(this);
-        buttons.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams buttonRowParams = new LinearLayout.LayoutParams(-2, dp(46));
-        buttonRowParams.topMargin = dp(22);
-        panel.addView(buttons, buttonRowParams);
-        errorRetry = toolbarButton("TRY AGAIN", "Try loading the page again", v -> reload());
-        LinearLayout.LayoutParams retryParams = new LinearLayout.LayoutParams(dp(130), -1);
+        LinearLayout actions = new LinearLayout(this);
+        actions.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-1, dp(46));
+        actionParams.topMargin = dp(22);
+        panel.addView(actions, actionParams);
+        errorRetry = toolbarButton("TRY AGAIN", "Try opening this page again", v -> reload());
+        LinearLayout.LayoutParams retryParams = new LinearLayout.LayoutParams(dp(140), -1);
         retryParams.rightMargin = dp(10);
-        buttons.addView(errorRetry, retryParams);
-        buttons.addView(toolbarButton("HOME", "Go to browser home", v -> goHome()),
-                new LinearLayout.LayoutParams(dp(110), -1));
-        return panel;
-    }
-
-    private void addToolbarItem(LinearLayout parent, View item, int widthDp) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(widthDp), -1);
-        params.rightMargin = dp(7);
-        parent.addView(item, params);
+        actions.addView(errorRetry, retryParams);
+        actions.addView(toolbarButton("HOME", "Return to the browser home", v -> goHome()),
+                new LinearLayout.LayoutParams(dp(112), -1));
+        return background;
     }
 
     private TextView toolbarButton(String label, String description, View.OnClickListener listener) {
         TextView view = text(label, label.length() <= 1 ? 21 : 11, TEXT, true);
         view.setGravity(Gravity.CENTER);
+        view.setPadding(dp(4), 0, dp(4), 0);
+        view.setLetterSpacing(0.02f);
+        view.setSingleLine(true);
         view.setFocusable(true);
         view.setClickable(true);
         view.setContentDescription(description);
@@ -433,17 +518,26 @@ public final class MainActivity extends Activity {
         return states;
     }
 
+    private StateListDrawable primaryButtonBackground() {
+        StateListDrawable states = new StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_pressed}, rounded(Color.WHITE, 11, Color.WHITE, 2));
+        states.addState(new int[]{android.R.attr.state_focused}, rounded(ACCENT, 11, Color.WHITE, 2));
+        states.addState(new int[]{}, rounded(Color.rgb(120, 222, 198), 11, 0, 0));
+        return states;
+    }
+
     private StateListDrawable addressBackground() {
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, rounded(Color.rgb(29, 51, 66), 10, ACCENT, 2));
-        states.addState(new int[]{}, rounded(Color.rgb(19, 32, 49), 10, Color.rgb(57, 76, 92), 1));
+        states.addState(new int[]{android.R.attr.state_focused}, rounded(Color.rgb(27, 49, 61), 10, ACCENT, 2));
+        states.addState(new int[]{}, rounded(Color.rgb(17, 31, 47), 10, Color.rgb(53, 72, 85), 1));
         return states;
     }
 
     private StateListDrawable cardBackground() {
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, rounded(Color.rgb(42, 79, 86), 13, ACCENT, 2));
-        states.addState(new int[]{}, rounded(Color.rgb(29, 48, 65), 13, Color.rgb(50, 72, 86), 1));
+        states.addState(new int[]{android.R.attr.state_pressed}, rounded(Color.rgb(38, 81, 85), 12, Color.WHITE, 2));
+        states.addState(new int[]{android.R.attr.state_focused}, rounded(Color.rgb(36, 72, 76), 12, ACCENT, 2));
+        states.addState(new int[]{}, rounded(0xC31A2C3B, 12, 0x665B7982, 1));
         return states;
     }
 
@@ -708,7 +802,7 @@ public final class MainActivity extends Activity {
         showingHome = false;
         homePanel.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
-        helper.setText("ARROWS choose an item   •   OK opens   •   BACK returns   •   HOLD BACK for toolbar");
+        helper.setText("EXTERNAL WEBSITE   •   ARROWS move   •   OK opens   •   BACK returns");
         updateInsecureBadge();
     }
 
@@ -779,7 +873,7 @@ public final class MainActivity extends Activity {
         if (!address.hasFocus()) address.setText("");
         status.setText("READY TO EXPLORE");
         status.setTextColor(ACCENT);
-        helper.setText("ON A PAGE: HOLD BACK, OR HOLD UP AT THE TOP, FOR THE TOOLBAR");
+        helper.setText("ON A WEBSITE: HOLD BACK OR HOLD UP AT THE TOP FOR CONTROLS");
         if (focusSearch && homeSearch != null) homeSearch.requestFocus();
         updateNavigation();
     }

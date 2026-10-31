@@ -43,6 +43,19 @@ test('hides marked floating ads but leaves helpful, inline and large content alo
   dom.window.close();
 });
 
+test('does not hide or change a website update dialog', () => {
+  const dom = page(`
+    <div id="update" role="dialog" aria-modal="true" style="position:fixed">
+      <h1>Update Required</h1><p>A website-supplied update message.</p>
+      <button id="update-button">Update Now</button>
+    </div>`);
+  const doc = dom.window.document;
+  assert.equal(hidden(doc, 'update'), false);
+  assert.equal(doc.getElementById('update-button').textContent, 'Update Now');
+  assert.equal(doc.querySelector('#update h1').textContent, 'Update Required');
+  dom.window.close();
+});
+
 test('hides new or newly marked floating ads added by a dynamic website', async () => {
   const dom = page('<main id="root"></main>');
   const doc = dom.window.document;
