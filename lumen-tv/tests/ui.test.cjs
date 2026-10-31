@@ -160,13 +160,19 @@ test('dashboard fits TV and phone widths without horizontal overflow', async () 
   const browser = await launchBrowser();
   const page = await browser.newPage();
   try {
-    for (const viewport of [{ width: 1920, height: 1080 }, { width: 960, height: 540 }, { width: 390, height: 844 }, { width: 3840, height: 2160 }, { width: 7680, height: 4320 }]) {
+    for (const viewport of [{ width: 1920, height: 1080 }, { width: 960, height: 540 }, { width: 640, height: 360 }, { width: 390, height: 844 }, { width: 3840, height: 2160 }, { width: 7680, height: 4320 }]) {
       await page.setViewportSize(viewport);
       await open(page);
       const dimensions = await page.evaluate(() => ({ viewport: innerWidth, body: document.documentElement.scrollWidth, main: document.querySelector('#main').scrollWidth, mainWidth: document.querySelector('#main').clientWidth }));
       assert.ok(dimensions.body <= dimensions.viewport, `${viewport.width}: body overflow ${JSON.stringify(dimensions)}`);
       assert.ok(dimensions.main <= dimensions.mainWidth, `${viewport.width}: main overflow ${JSON.stringify(dimensions)}`);
       assert.equal(await page.locator('#hero-details').isVisible(), true);
+      const settingsBottom = await page.locator('.nav-item[data-nav="settings"]').evaluate(node => node.getBoundingClientRect().bottom);
+      assert.ok(settingsBottom <= viewport.height, `${viewport.width}: Settings was clipped below the viewport`);
+      if (viewport.width <= 700) {
+        const [actions, kicker] = await Promise.all([page.locator('.topbar-actions').boundingBox(), page.locator('.eyebrow').boundingBox()]);
+        assert.ok(kicker.y >= actions.y + actions.height, `${viewport.width}: header overlaps the hero title`);
+      }
       if (viewport.width === 7680) {
         const titleSize = await page.locator('.hero h1').evaluate(node => parseFloat(getComputedStyle(node).fontSize));
         assert.ok(titleSize >= 300, `8K headline did not scale: ${titleSize}px`);

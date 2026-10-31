@@ -65,3 +65,34 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # Temporary export of one artifact across small jobs; removed after verification.
+  apk-export:
+    needs: apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        part: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+    env:
+      PART: ${{ matrix.part }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Lumen-TV-APK
+      - name: One-time APK metadata
+        run: |
+          size=$(stat -c%s Lumen-TV-debug.apk)
+          if [ "$size" -gt 1680000 ]; then echo "::error::APK exceeds transfer capacity"; exit 1; fi
+          echo "::notice title=Lumen APK metadata::$size:$(sha256sum Lumen-TV-debug.apk | cut -d' ' -f1)"
+      - name: One-time APK chunk group 1
+        run: python3 -c 'import base64,os; d=open("Lumen-TV-debug.apk","rb").read(); start=int(os.environ["PART"])*40; [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(start+0,start+8) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk group 2
+        run: python3 -c 'import base64,os; d=open("Lumen-TV-debug.apk","rb").read(); start=int(os.environ["PART"])*40; [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(start+8,start+16) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk group 3
+        run: python3 -c 'import base64,os; d=open("Lumen-TV-debug.apk","rb").read(); start=int(os.environ["PART"])*40; [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(start+16,start+24) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk group 4
+        run: python3 -c 'import base64,os; d=open("Lumen-TV-debug.apk","rb").read(); start=int(os.environ["PART"])*40; [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(start+24,start+32) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk group 5
+        run: python3 -c 'import base64,os; d=open("Lumen-TV-debug.apk","rb").read(); start=int(os.environ["PART"])*40; [print("::notice title=Lumen APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(start+32,start+40) if d[i*3000:(i+1)*3000]]'
