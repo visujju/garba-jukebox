@@ -475,6 +475,12 @@ public final class MainActivity extends Activity {
         return background;
     }
 
+    private void addToolbarItem(LinearLayout parent, View item, int widthDp) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(widthDp), -1);
+        params.rightMargin = dp(7);
+        parent.addView(item, params);
+    }
+
     private TextView toolbarButton(String label, String description, View.OnClickListener listener) {
         TextView view = text(label, label.length() <= 1 ? 21 : 11, TEXT, true);
         view.setGravity(Gravity.CENTER);
