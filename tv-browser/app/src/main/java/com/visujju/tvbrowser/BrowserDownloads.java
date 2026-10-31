@@ -76,7 +76,8 @@ final class BrowserDownloads {
         }
         String message = "File: " + name + "\nFrom: " + DownloadPolicy.origin(normalized)
                 + "\nSize: " + size
-                + "\n\nThe website may redirect the download to another source." + warning;
+                + "\n\nThe website may redirect the download to another source."
+                + " Downloads that require sign-in may fail." + warning;
         confirmation = new AlertDialog.Builder(activity)
                 .setTitle("Download file?")
                 .setMessage(message)

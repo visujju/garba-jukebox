@@ -489,7 +489,127 @@ PY
 done
 if [ "$listed" != true ]; then echo 'Completed file is missing from FILES'; exit 1; fi
 echo 'Download list verified'
+
+# Selecting an entry exposes the requested Open and explicit-delete actions.
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text "$file"
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+assert any(n.get('text', '').lower() == 'open' for n in nodes), 'Open action missing'
+assert any(n.get('text', '').lower() == 'delete file' for n in nodes), 'Delete action missing'
+assert any(n.get('text', '').lower() == 'back' and n.get('focused') == 'true'
+           for n in nodes), 'File actions should default to Back'
+print('Completed file actions verified')
+PY
+adb shell input keyevent KEYCODE_DPAD_LEFT
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any(n.get('text', '').lower() == 'delete file' and n.get('focused') == 'true'
+           for n in nodes), 'Could not focus Delete file'
+PY
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'Remove download?'
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any(n.get('text', '').lower() == 'keep' and n.get('focused') == 'true'
+           for n in nodes), 'Deletion should default to Keep'
+PY
+adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER
+wait_for_text 'Downloads'
+if adb shell ls /sdcard/Download/ | tr -d '\r' | grep -Fxq "$file"; then
+  echo 'Confirmed Delete file did not remove the file'; exit 1
+fi
+echo 'Explicit deletion verified'
 adb shell input keyevent KEYCODE_BACK
+
+# Download the fake APK fixture, then exercise the explicit Open safety gate.
+# The fixture is only text: it is never installed.
+adb shell input keyevent KEYCODE_BACK
+selected=false
+for attempt in $(seq 1 3); do
+  adb shell input keyevent KEYCODE_DPAD_UP
+  show_focus
+  if python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+sys.exit(0 if any(n.get('content-desc') == 'Test APK warning (not an app)' and n.get('focused') == 'true'
+                  for n in nodes) else 1)
+PY
+  then
+    selected=true
+    break
+  fi
+done
+if [ "$selected" != true ]; then echo 'Could not return to the APK fixture link'; exit 1; fi
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'Download file?'
+adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER
+apk_file=''
+for attempt in $(seq 1 30); do
+  apk_file=$(adb shell ls /sdcard/Download/ | tr -d '\r' | grep -E '^tv-browser-fake-[0-9a-f]{8}\.apk$' | head -1 || true)
+  if [ -n "$apk_file" ]; then
+    adb exec-out cat "/sdcard/Download/$apk_file" > "${RUNNER_TEMP:-/tmp}/tv-browser-fake.apk" || true
+    if cmp -s tv-browser/tests/fixtures/tv-browser-fake.apk "${RUNNER_TEMP:-/tmp}/tv-browser-fake.apk"; then break; fi
+  fi
+  sleep 1
+done
+if [ -z "$apk_file" ] || ! cmp -s tv-browser/tests/fixtures/tv-browser-fake.apk "${RUNNER_TEMP:-/tmp}/tv-browser-fake.apk"; then
+  echo 'The fake APK fixture did not download'; exit 1
+fi
+adb shell input keyevent KEYCODE_MENU
+show_focus
+assert_toolbar
+adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT \
+  KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'Downloads'
+listed=false
+for attempt in $(seq 1 10); do
+  show_focus
+  if python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+sys.exit(0 if any('tv-browser-fake-' in n.get('text', '') and 'Complete' in n.get('text', '')
+                  for n in nodes) else 1)
+PY
+  then
+    listed=true
+    break
+  fi
+  adb shell input keyevent KEYCODE_BACK
+  sleep 1
+  adb shell input keyevent KEYCODE_DPAD_CENTER
+  wait_for_text 'Downloads'
+done
+if [ "$listed" != true ]; then echo 'Completed APK fixture is missing from FILES'; exit 1; fi
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text "$apk_file"
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+assert any('Only open this APK if you have independently verified its source.' in n.get('text', '')
+           for n in nodes), 'APK open warning missing'
+assert any(n.get('text', '').lower() == 'back' and n.get('focused') == 'true'
+           for n in nodes), 'APK actions should default to Back'
+PY
+adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER
+wait_for_text 'Allow app installation?'
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any(n.get('text', '').lower() == 'cancel' and n.get('focused') == 'true'
+           for n in nodes), 'Installer permission guidance should default to Cancel'
+print('APK is never installed automatically; explicit permission guidance verified')
+PY
+adb shell input keyevent KEYCODE_DPAD_CENTER
 
 # There must be no fatal app exception during the interaction.
 if adb logcat -d -s AndroidRuntime:E | grep -Fq 'FATAL EXCEPTION'; then

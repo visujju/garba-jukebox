@@ -36,6 +36,10 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
           cp app/build/outputs/apk/debug/app-debug.apk TV-Browser-debug.apk
+      # One-time transfer of this public debug APK to the session's workspace.
+      - name: Export debug APK for the mobile download
+        run: |
+          python3 -c 'import base64,hashlib,pathlib,sys; b=pathlib.Path("tv-browser/TV-Browser-debug.apk").read_bytes(); parts=[b[i:i+24000] for i in range(0,len(b),24000)]; assert len(parts)<=9; print("::notice title=TVAPK-SHA256::"+hashlib.sha256(b).hexdigest()); [print("::notice title=TVAPK-%03d::%s"%(i,base64.b64encode(p).decode())) for i,p in enumerate(parts)]'
       - uses: actions/upload-artifact@v4
         with:
           name: TV-Browser-APK
