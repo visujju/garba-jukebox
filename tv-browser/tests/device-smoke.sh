@@ -236,15 +236,31 @@ adb shell input keyevent KEYCODE_DPAD_CENTER
 wait_for_text 'AD: hidden'
 wait_for_text 'HELP: visible'
 wait_for_text 'TV focus ready'
-wait_for_text 'FOCUSED: none'
 
-# Start from an unfocused page whose HTML order differs from its visual grid.
-# Real D-pad events should follow geometry, not a fixed HTML/tab sequence.
-adb shell input keyevent KEYCODE_DPAD_RIGHT
+# After a reload WebView may restore an old page focus. Move to the first card
+# from the actual current state, then verify geometric navigation in the grid.
+for attempt in $(seq 1 4); do
+  adb shell uiautomator dump /sdcard/tv-browser-window.xml >/dev/null
+  adb exec-out cat /sdcard/tv-browser-window.xml > "$UI"
+  focused=$(python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+print(next((n.get('text') for n in nodes if n.get('text', '').startswith('FOCUSED: ')), ''))
+PY
+)
+  case "$focused" in
+    'FOCUSED: first') break ;;
+    'FOCUSED: none') adb shell input keyevent KEYCODE_DPAD_RIGHT ;;
+    'FOCUSED: third') adb shell input keyevent KEYCODE_DPAD_UP ;;
+    'FOCUSED: second-poster') adb shell input keyevent KEYCODE_DPAD_LEFT ;;
+    *) echo "Unexpected fixture focus: $focused"; show_focus; exit 1 ;;
+  esac
+done
 wait_for_text 'FOCUSED: first'
-wait_for_text 'SPATIAL: handled'
+# Real D-pad events should follow geometry, not a fixed HTML/tab sequence.
 adb shell input keyevent KEYCODE_DPAD_DOWN
 wait_for_text 'FOCUSED: third'
+wait_for_text 'SPATIAL: handled'
 adb shell input keyevent KEYCODE_DPAD_UP
 wait_for_text 'FOCUSED: first'
 adb shell input keyevent KEYCODE_DPAD_RIGHT
@@ -389,11 +405,31 @@ if adb shell ls /sdcard/Download/ | tr -d '\r' | grep -q '^tv-browser-fake-'; th
 fi
 
 # Download the harmless binary fixture after explicitly selecting Download.
-adb shell input keyevent KEYCODE_DPAD_DOWN
-show_focus
+# Closing a dialog can restore or clear DOM focus depending on WebView version.
+selected=false
+for attempt in $(seq 1 3); do
+  adb shell input keyevent KEYCODE_DPAD_DOWN
+  show_focus
+  if python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+sys.exit(0 if any(n.get('content-desc') == 'Download a test file' and n.get('focused') == 'true'
+                  for n in nodes) else 1)
+PY
+  then
+    selected=true
+    break
+  fi
+done
+if [ "$selected" != true ]; then echo 'Could not focus the binary download link'; exit 1; fi
 adb shell input keyevent KEYCODE_DPAD_CENTER
 wait_for_text 'Download file?'
 show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any('tv-browser-fixture-' in n.get('text', '') for n in nodes), 'Wrong download offered'
+PY
 adb shell input keyevent KEYCODE_DPAD_RIGHT
 show_focus
 python3 - "$UI" <<'PY'
