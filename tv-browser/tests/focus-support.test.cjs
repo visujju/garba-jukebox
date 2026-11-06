@@ -72,6 +72,8 @@ test('prepares pointer-style background cards but avoids duplicate or unsafe sto
     <div id="background-card" class="pointer-card" data-width="180" data-height="100">Background poster</div>
     <div id="with-image" class="pointer-card"><img id="image" alt="Poster"></div>
     <div id="with-button" class="pointer-card"><button id="button">Already a button</button></div>
+    <div id="with-video" class="pointer-card"><video controls></video></div>
+    <div id="with-frame" class="pointer-card"><iframe title="Player"></iframe></div>
     <div id="disabled" class="pointer-card" aria-disabled="true">Disabled</div>
     <div id="giant" class="pointer-card" data-width="1000" data-height="700">Page-size wrapper</div>
     <div id="group" class="pointer-card" data-width="400" data-height="100">
@@ -81,7 +83,7 @@ test('prepares pointer-style background cards but avoids duplicate or unsafe sto
   const doc = dom.window.document;
   const attr = id => doc.getElementById(id).getAttribute('tabindex');
   for (const id of ['background-card', 'image', 'first', 'second']) assert.equal(attr(id), '0', id);
-  for (const id of ['with-image', 'with-button', 'disabled', 'giant', 'group']) assert.equal(attr(id), null, id);
+  for (const id of ['with-image', 'with-button', 'with-video', 'with-frame', 'disabled', 'giant', 'group']) assert.equal(attr(id), null, id);
   const card = doc.getElementById('background-card');
   let clicks = 0;
   card.addEventListener('click', () => clicks++);

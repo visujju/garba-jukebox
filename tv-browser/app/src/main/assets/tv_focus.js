@@ -57,7 +57,7 @@
                     || rect.right < -viewportWidth || rect.left > 2 * viewportWidth
                     || rect.bottom < -viewportHeight || rect.top > 2 * viewportHeight) continue;
             if (window.getComputedStyle(element).cursor !== 'pointer' || !visible(element)
-                    || element.querySelector(actionable)) continue;
+                    || element.querySelector(actionable + ',iframe,video,audio,[contenteditable]')) continue;
 
             var images = element.querySelectorAll('img:not([aria-hidden="true"]):not([role="presentation"])');
             var hasPoster = false;
