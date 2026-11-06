@@ -131,6 +131,31 @@ PY
   show_focus || true
   return 1
 }
+read_scroll_position() {
+  dump_ui
+  python3 - "$UI" <<'PY'
+import re, sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+for node in nodes:
+    match = re.fullmatch(r'SCROLL Y: (\d+)', node.get('text', ''))
+    if match:
+        print(match.group(1))
+        sys.exit(0)
+sys.exit(1)
+PY
+}
+wait_for_scroll_increase() {
+  local before="$1" current
+  for attempt in $(seq 1 10); do
+    if current=$(read_scroll_position) && [ "$current" -gt "$before" ]; then
+      echo "Page scrolled from $before to $current"
+      return 0
+    fi
+  done
+  echo "::error title=TV Browser scrolling::Scroll did not increase from $before"
+  show_focus || true
+  return 1
+}
 assert_fullscreen() {
   python3 - "$UI" <<'PY'
 import re, sys, xml.etree.ElementTree as ET
@@ -334,6 +359,8 @@ assert 'cannot automatically update the app' in text
 print('Separate AI site and privacy explanation verified')
 PY
 adb shell input keyevent KEYCODE_BACK
+# Wait for the dialog window to close before sending the next D-pad key.
+show_focus
 adb shell input keyevent KEYCODE_DPAD_LEFT
 show_focus
 python3 - "$UI" <<'PY'
@@ -351,8 +378,9 @@ test "$(grep -Fc 'GET /remote-controls.html ' "$LOG")" = "$before_requests"
 # Returning to the existing document must scroll instead of jumping focus.
 adb shell input keyevent KEYCODE_BACK
 wait_for_text 'CURRENT: after'
+before_scroll=$(read_scroll_position)
 adb shell input keyevent KEYCODE_DPAD_DOWN
-wait_for_text 'SCROLL: moved'
+wait_for_scroll_increase "$before_scroll"
 wait_for_text 'CURRENT: after'
 
 # Switch straight back to item focus without reloading, then check a real
@@ -382,8 +410,9 @@ adb shell input keyevent KEYCODE_ENTER
 wait_for_title 'TV Browser remote controls test'
 wait_for_text 'TV remote helper: ready'
 wait_for_text 'CURRENT: first'
+before_scroll=$(read_scroll_position)
 adb shell input keyevent KEYCODE_DPAD_DOWN
-wait_for_text 'SCROLL: moved'
+wait_for_scroll_increase "$before_scroll"
 wait_for_text 'CURRENT: first'
 # Reset to the default so the remaining browser tests use item navigation.
 focus_mode_controls

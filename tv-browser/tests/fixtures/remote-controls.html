@@ -26,7 +26,7 @@
   <p id="focus-status">FOCUSED: none</p>
   <p id="helper-status">TV remote helper: waiting</p>
   <p id="click-status">BACKGROUND CARD: not opened</p>
-  <div class="telemetry"><div id="scroll-status">SCROLL: top</div><div id="focus-mirror">CURRENT: none</div></div>
+  <div class="telemetry"><div id="scroll-status">SCROLL Y: 0</div><div id="focus-mirror">CURRENT: none</div></div>
   <div class="grid">
     <a class="card" id="first" href="#first">First card</a>
     <a class="card shifted" id="same-row" href="#same-row">Same row, slightly lower</a>
@@ -42,7 +42,7 @@
       document.getElementById('focus-mirror').textContent = 'CURRENT: ' + event.target.id;
     });
     window.addEventListener('scroll', function () {
-      document.getElementById('scroll-status').textContent = window.scrollY > 40 ? 'SCROLL: moved' : 'SCROLL: top';
+      document.getElementById('scroll-status').textContent = 'SCROLL Y: ' + Math.round(window.scrollY);
     });
     document.getElementById('background-card').addEventListener('click', function () {
       document.getElementById('click-status').textContent = 'BACKGROUND CARD: opened';
