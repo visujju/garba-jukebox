@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TV Browser remote controls test</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #102034; color: white; font: 18px sans-serif; }
+    h1 { margin: 16px 32px 6px; font-size: 24px; }
+    p { margin: 4px 32px; }
+    .grid { display: grid; grid-template-columns: 200px 200px; gap: 20px 28px; margin: 20px 32px; }
+    .card { box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+      width: 200px; height: 78px; border: 0; border-radius: 6px; color: white; text-decoration: none;
+      background: #28475a; font: 18px sans-serif; }
+    .shifted { transform: translateY(8px); }
+    /* Simulates a React-style poster without link, role, tabindex or an image. */
+    .background-card { background: linear-gradient(135deg, #0c6a63, #153342); cursor: pointer; }
+    input.card { text-align: left; padding: 0 12px; background: #f3f6f4; color: #14202a; }
+    button.card { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Remote navigation fixture</h1>
+  <p id="focus-status">FOCUSED: none</p>
+  <p id="helper-status">TV remote helper: waiting</p>
+  <p id="click-status">BACKGROUND CARD: not opened</p>
+  <div class="grid">
+    <a class="card" id="first" href="#first">First card</a>
+    <a class="card shifted" id="same-row" href="#same-row">Same row, slightly lower</a>
+    <a class="card" id="below" href="#below">Card below</a>
+    <div class="card background-card" id="background-card">Background poster</div>
+    <input class="card" id="entry" type="text" aria-label="Remote text field" placeholder="Type here">
+    <button class="card" id="after" type="button">Next action</button>
+  </div>
+  <script>
+    document.addEventListener('focusin', function (event) {
+      document.getElementById('focus-status').textContent = 'FOCUSED: ' + event.target.id;
+    });
+    document.getElementById('background-card').addEventListener('click', function () {
+      document.getElementById('click-status').textContent = 'BACKGROUND CARD: opened';
+    });
+    var card = document.getElementById('background-card');
+    var watcher = new MutationObserver(function () {
+      if (card.getAttribute('data-tv-browser-focus-added') === 'true') {
+        document.getElementById('helper-status').textContent = 'TV remote helper: ready';
+        watcher.disconnect();
+      }
+    });
+    watcher.observe(card, { attributes: true, attributeFilter: ['data-tv-browser-focus-added'] });
+    window.addEventListener('load', function () { document.getElementById('first').focus(); });
+  </script>
+</body>
+</html>

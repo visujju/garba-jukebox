@@ -11,8 +11,8 @@ android {
         minSdk = 26
         // Keep the classic window inset behavior on Android 15 for this TV-first UI.
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     compileOptions {

@@ -63,6 +63,21 @@ test('arrows select the nearest item by position, not HTML order', () => {
   dom.window.close();
 });
 
+test('Up and Down ignore small row offsets and keep the expected grid sequence', () => {
+  const dom = page(card('first', 100, 100, 'data-width="120" data-height="48"') +
+    card('same-row', 230, 106, 'data-width="120" data-height="48"') +
+    card('below', 100, 200, 'data-width="120" data-height="48"'));
+  const doc = dom.window.document;
+  doc.getElementById('first').focus();
+  dom.remoteKey('ArrowDown');
+  assert.equal(doc.activeElement.id, 'below');
+  dom.remoteKey('ArrowUp');
+  assert.equal(doc.activeElement.id, 'first');
+  dom.remoteKey('ArrowRight');
+  assert.equal(doc.activeElement.id, 'same-row');
+  dom.window.close();
+});
+
 test('a page without initial focus starts with the first visible item', () => {
   const dom = page(card('below', 20, 250) + card('offscreen', 10, 900) + card('first', 20, 20));
   const event = dom.remoteKey('ArrowDown');
@@ -89,9 +104,10 @@ test('scrolls an off-screen target into view and lets the page scroll at an edge
 });
 
 test('leaves text fields, website-handled keys, modifiers and synthetic keys alone', () => {
-  const dom = page('<input id="search" data-x="20" data-y="20">' + card('next', 200, 20));
+  const dom = page('<input id="search" value="abc" data-x="20" data-y="20">' + card('next', 200, 20));
   const doc = dom.window.document;
   doc.getElementById('search').focus();
+  doc.getElementById('search').setSelectionRange(1, 1);
   assert.equal(dom.remoteKey('ArrowRight').defaultPrevented, false);
   assert.equal(doc.activeElement.id, 'search');
   doc.getElementById('next').focus();
@@ -99,6 +115,46 @@ test('leaves text fields, website-handled keys, modifiers and synthetic keys alo
     const event = dom.remoteKey('ArrowLeft', overrides);
     assert.equal(doc.activeElement.id, 'next');
     assert.equal(event.defaultPrevented, !!overrides.defaultPrevented);
+  }
+  dom.window.close();
+});
+
+test('one-line fields allow leaving at caret edges or vertically without stealing editing', () => {
+  const dom = page('<input id="search" value="hello" data-x="20" data-y="20">' +
+    card('right', 200, 20) + card('below', 20, 160) +
+    '<input id="combo" role="combobox" data-x="400" data-y="20">' +
+    '<textarea id="multi" data-x="600" data-y="20"></textarea>');
+  const doc = dom.window.document;
+  const input = doc.getElementById('search');
+  input.focus();
+  input.setSelectionRange(2, 2);
+  assert.equal(dom.remoteKey('ArrowRight').defaultPrevented, false);
+  assert.equal(doc.activeElement.id, 'search', 'arrow edits the text inside the value');
+  input.setSelectionRange(5, 5);
+  assert.equal(dom.remoteKey('ArrowRight').defaultPrevented, true);
+  assert.equal(doc.activeElement.id, 'right', 'Right leaves a field at the end of the caret');
+  input.focus();
+  input.setSelectionRange(1, 3);
+  assert.equal(dom.remoteKey('ArrowRight').defaultPrevented, false, 'selection is not stolen');
+  assert.equal(doc.activeElement.id, 'search');
+  dom.remoteKey('ArrowDown');
+  assert.equal(doc.activeElement.id, 'below');
+  doc.getElementById('combo').focus();
+  assert.equal(dom.remoteKey('ArrowDown').defaultPrevented, false, 'combobox owns its arrows');
+  doc.getElementById('multi').focus();
+  assert.equal(dom.remoteKey('ArrowDown').defaultPrevented, false, 'multiline field owns its arrows');
+  dom.window.close();
+});
+
+test('a text field with an open or accessible suggestions list keeps its arrows', () => {
+  const dom = page('<input id="list" list="choices" data-x="20" data-y="20">' +
+    '<input id="expanded" aria-expanded="true" data-x="20" data-y="120">' +
+    '<input id="autocomplete" aria-autocomplete="list" data-x="20" data-y="220">' + card('next', 200, 20));
+  const doc = dom.window.document;
+  for (const id of ['list', 'expanded', 'autocomplete']) {
+    doc.getElementById(id).focus();
+    assert.equal(dom.remoteKey('ArrowDown').defaultPrevented, false, id + ' must keep its suggestions keys');
+    assert.equal(doc.activeElement.id, id);
   }
   dom.window.close();
 });
@@ -113,6 +169,16 @@ test('does not move twice when a website already moved focus or scrolled', () =>
   const scrolled = dom.remoteKey('ArrowRight', {siteAction: () => { dom.window.scrollX = 20; }});
   assert.equal(doc.activeElement.id, 'second');
   assert.equal(scrolled.defaultPrevented, false);
+  dom.window.close();
+});
+
+test('does not move focus a second time when a site scrolls a nested carousel', () => {
+  const dom = page('<div id="carousel">' + card('current', 20, 20) + card('next', 200, 20) + '</div>');
+  const doc = dom.window.document;
+  doc.getElementById('current').focus();
+  const event = dom.remoteKey('ArrowRight', {siteAction: () => { doc.getElementById('carousel').scrollLeft = 90; }});
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(doc.activeElement.id, 'current');
   dom.window.close();
 });
 

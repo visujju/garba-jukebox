@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs on an already-booted Android TV emulator. Uses only a local fixture server.
-set -euo pipefail
+set -Eeuo pipefail
+trap 'echo "::error title=TV Browser smoke test::Command failed at line $LINENO: $BASH_COMMAND"' ERR
 
 PORT=8765
 LOG="${RUNNER_TEMP:-/tmp}/tv-browser-fixture.log"
@@ -14,14 +15,35 @@ cleanup() {
     echo '--- Failure diagnostics ---'
     cat "$LOG" || true
     adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' || true
-    adb logcat -d -v time | grep -Ei 'AndroidRuntime|FATAL EXCEPTION|com.visujju.tvbrowser|lowmemorykiller|lmkd|inputmethod|process .* died|killing' | grep -Ev 'AppsFilter|katniss_' | tail -250 || true
+    adb logcat -d -v time > "${RUNNER_TEMP:-/tmp}/tv-browser-logcat.txt" || true
+    grep -Ei 'AndroidRuntime|FATAL EXCEPTION|com.visujju.tvbrowser|lowmemorykiller|lmkd|inputmethod|process .* died|killing' "${RUNNER_TEMP:-/tmp}/tv-browser-logcat.txt" | grep -Ev 'AppsFilter|katniss_' | tail -250 || true
+    python3 - "$UI" "${RUNNER_TEMP:-/tmp}/tv-browser-logcat.txt" <<'PY' || true
+import pathlib, re, sys, xml.etree.ElementTree as ET
+try:
+    nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+    focused = [(n.get('text'), n.get('content-desc')) for n in nodes if n.get('focused') == 'true']
+    labels = [n.get('text') or n.get('content-desc') for n in nodes if n.get('text') or n.get('content-desc')]
+    hierarchy = ('Focused: ' + str(focused) + '\nLabels: ' + str(labels))[:2500]
+    print('::notice title=TV Browser hierarchy::' + hierarchy.replace('%', '%25').replace('\n', '%0A'))
+except Exception as exc:
+    print('::notice title=TV Browser hierarchy::' + str(exc))
+lines = pathlib.Path(sys.argv[2]).read_text(errors='replace').splitlines()
+fatal = [i for i, line in enumerate(lines) if 'FATAL EXCEPTION' in line or 'Fatal signal' in line]
+stack = lines[fatal[-1]:fatal[-1] + 12] if fatal else []
+interesting = [line[:220] for line in lines if re.search(r'ActivityManager.*(Process .*has died|Killing)|lmkd', line, re.I)
+               and re.search(r'tvbrowser|gms|webview|lmkd', line, re.I)]
+text = '\n'.join(stack + interesting[-12:])[:2500]
+print('::notice title=TV Browser Android log::' + text.replace('%', '%25').replace('\n', '%0A'))
+PY
   fi
 }
 trap cleanup EXIT
 # Keep Play Store auto-updates from restarting Google Play Services (and
 # dependent apps) in the middle of this isolated, local-fixture test.
-adb shell pm disable-user --user 0 com.android.vending
+adb shell pm disable-user --user 0 com.android.vending || true
 adb reverse "tcp:$PORT" "tcp:$PORT"
+# Let first-boot Android TV services settle before opening WebView.
+sleep 15
 adb logcat -c
 adb install -r tv-browser/app/build/outputs/apk/debug/app-debug.apk
 # Start with a clean app state even if a previous emulator attempt was interrupted.
@@ -31,12 +53,25 @@ adb shell wm density 320
 adb shell input keyevent KEYCODE_WAKEUP
 adb shell am start -W -n com.visujju.tvbrowser/.MainActivity
 
+# uiautomator can temporarily lose its accessibility connection on an
+# emulator. Retry a failed dump instead of mistaking it for an app failure.
+dump_ui() {
+  for attempt in 1 2 3 4; do
+    if adb shell uiautomator dump /sdcard/tv-browser-window.xml >/dev/null 2>&1 \
+        && adb exec-out cat /sdcard/tv-browser-window.xml > "$UI" \
+        && python3 -c 'import sys, xml.etree.ElementTree as e; e.parse(sys.argv[1])' "$UI" 2>/dev/null; then
+      return 0
+    fi
+    echo 'UIAutomator dump unavailable; retrying.' >&2
+  done
+  return 1
+}
+
 # uiautomator waits for UI idle; a dump checks the real Android view hierarchy.
 show_focus() {
   echo "--- Current activity and focused views ---"
   adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' || true
-  adb shell uiautomator dump /sdcard/tv-browser-window.xml >/dev/null
-  adb exec-out cat /sdcard/tv-browser-window.xml > "$UI"
+  dump_ui
   python3 - "$UI" <<'PY'
 import sys, xml.etree.ElementTree as ET
 nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
@@ -62,8 +97,7 @@ wait_for_request() {
 wait_for_title() {
   local title="$1"
   for attempt in $(seq 1 12); do
-    adb shell uiautomator dump /sdcard/tv-browser-window.xml >/dev/null
-    adb exec-out cat /sdcard/tv-browser-window.xml > "$UI"
+    if ! dump_ui; then continue; fi
     if python3 - "$UI" "$title" <<'PY'
 import sys, xml.etree.ElementTree as ET
 nodes = ET.parse(sys.argv[1]).getroot().iter('node')
@@ -75,15 +109,14 @@ PY
       return 0
     fi
   done
-  echo "Timed out waiting for page title: $title"
+  echo "::error title=TV Browser timeout::Timed out waiting for page title: $title"
   show_focus || true
   return 1
 }
 wait_for_text() {
   local text="$1"
   for attempt in $(seq 1 10); do
-    adb shell uiautomator dump /sdcard/tv-browser-window.xml >/dev/null
-    adb exec-out cat /sdcard/tv-browser-window.xml > "$UI"
+    if ! dump_ui; then continue; fi
     if python3 - "$UI" "$text" <<'PY'
 import sys, xml.etree.ElementTree as ET
 nodes = ET.parse(sys.argv[1]).getroot().iter('node')
@@ -94,7 +127,7 @@ PY
       return 0
     fi
   done
-  echo "Timed out waiting for on-screen text: $text"
+  echo "::error title=TV Browser timeout::Timed out waiting for on-screen text: $text"
   show_focus || true
   return 1
 }
@@ -212,6 +245,49 @@ assert any(n.get('focused') == 'true' and n.get('content-desc') == 'Search or en
            for n in nodes), 'D-pad could not return to Home search'
 PY
 
+# Exercise the newer remote behavior against a local page with a slightly
+# staggered row, a background-image card and an ordinary text field.
+adb shell input keyevent KEYCODE_DPAD_CENTER
+adb shell input text "http://127.0.0.1:$PORT/remote-controls.html"
+adb shell input keyevent KEYCODE_ENTER
+wait_for_title 'TV Browser remote controls test'
+wait_for_text 'TV remote helper: ready'
+wait_for_text 'FOCUSED: first'
+adb shell input keyevent KEYCODE_DPAD_DOWN
+wait_for_text 'FOCUSED: below'
+adb shell input keyevent KEYCODE_DPAD_UP
+wait_for_text 'FOCUSED: first'
+adb shell input keyevent KEYCODE_DPAD_RIGHT
+wait_for_text 'FOCUSED: same-row'
+adb shell input keyevent KEYCODE_DPAD_DOWN
+wait_for_text 'FOCUSED: background-card'
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'BACKGROUND CARD: opened'
+adb shell input keyevent KEYCODE_DPAD_LEFT
+wait_for_text 'FOCUSED: below'
+adb shell input keyevent KEYCODE_DPAD_DOWN
+wait_for_text 'FOCUSED: entry'
+# Enter and dismiss the TV keyboard, then Right at the end of the text should
+# move to the adjacent button rather than trapping focus in the field.
+adb shell input keyevent KEYCODE_DPAD_CENTER
+adb shell input text remote_edge
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = ET.parse(sys.argv[1]).getroot().iter('node')
+assert any('remote_edge' in n.get('text', '') for n in nodes), 'Remote text entry failed'
+PY
+adb shell input keyevent KEYCODE_BACK
+wait_for_text 'FOCUSED: entry'
+adb shell input keyevent KEYCODE_DPAD_RIGHT
+wait_for_text 'FOCUSED: after'
+# Return to Home for the original browser, download and safety smoke tests.
+adb shell input keyevent KEYCODE_MENU
+show_focus
+assert_toolbar
+adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER
+wait_for_text 'Your shortcuts'
+
 # Activate the home search, enter the local URL using keyboard events, and submit it.
 adb shell input keyevent KEYCODE_DPAD_CENTER
 adb shell input text "http://127.0.0.1:$PORT/"
@@ -240,8 +316,7 @@ wait_for_text 'TV focus ready'
 # After a reload WebView may restore an old page focus. Move to the first card
 # from the actual current state, then verify geometric navigation in the grid.
 for attempt in $(seq 1 4); do
-  adb shell uiautomator dump /sdcard/tv-browser-window.xml >/dev/null
-  adb exec-out cat /sdcard/tv-browser-window.xml > "$UI"
+  dump_ui
   focused=$(python3 - "$UI" <<'PY'
 import sys, xml.etree.ElementTree as ET
 nodes = ET.parse(sys.argv[1]).getroot().iter('node')
@@ -611,10 +686,16 @@ print('APK is never installed automatically; explicit permission guidance verifi
 PY
 adb shell input keyevent KEYCODE_DPAD_CENTER
 
-# There must be no fatal app exception during the interaction.
-if adb logcat -d -s AndroidRuntime:E | grep -Fq 'FATAL EXCEPTION'; then
-  adb logcat -d -s AndroidRuntime:E
-  exit 1
-fi
+# Check for this app's fatal exceptions; UIAutomator or system services may
+# log their own transient crashes on a busy emulator and are not the browser.
+adb logcat -d -s AndroidRuntime:E > "${RUNNER_TEMP:-/tmp}/tv-browser-runtime.log"
+python3 - "${RUNNER_TEMP:-/tmp}/tv-browser-runtime.log" <<'PY'
+import pathlib, sys
+lines = pathlib.Path(sys.argv[1]).read_text(errors='replace').splitlines()
+for i, line in enumerate(lines):
+    if 'FATAL EXCEPTION' in line and any('com.visujju.tvbrowser' in x for x in lines[i:i + 8]):
+        print('\n'.join(lines[i:i + 20]))
+        raise SystemExit('TV Browser crashed during the test')
+PY
 printf '\nTV Browser shortcuts, full-screen navigation, HTTP warning and D-pad controls passed.\n'
 cat "$LOG"

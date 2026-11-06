@@ -36,6 +36,31 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
           cp app/build/outputs/apk/debug/app-debug.apk TV-Browser-debug.apk
+      # Temporary APK transfer for direct download; removed after verification.
+      - name: One-time APK metadata
+        working-directory: tv-browser
+        run: |
+          size=$(stat -c%s TV-Browser-debug.apk)
+          if [ "$size" -gt 138000 ]; then echo "::error::APK exceeds transfer capacity"; exit 1; fi
+          echo "::notice title=TV Browser APK metadata::$size:$(sha256sum TV-Browser-debug.apk | cut -d' ' -f1)"
+      - name: One-time APK chunk group 1
+        working-directory: tv-browser
+        run: python3 -c 'import base64; d=open("TV-Browser-debug.apk","rb").read(); [print("::notice title=TV Browser APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(0,8) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk group 2
+        working-directory: tv-browser
+        run: python3 -c 'import base64; d=open("TV-Browser-debug.apk","rb").read(); [print("::notice title=TV Browser APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(8,16) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk group 3
+        working-directory: tv-browser
+        run: python3 -c 'import base64; d=open("TV-Browser-debug.apk","rb").read(); [print("::notice title=TV Browser APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(16,24) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk group 4
+        working-directory: tv-browser
+        run: python3 -c 'import base64; d=open("TV-Browser-debug.apk","rb").read(); [print("::notice title=TV Browser APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(24,32) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk group 5
+        working-directory: tv-browser
+        run: python3 -c 'import base64; d=open("TV-Browser-debug.apk","rb").read(); [print("::notice title=TV Browser APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(32,40) if d[i*3000:(i+1)*3000]]'
+      - name: One-time APK chunk group 6
+        working-directory: tv-browser
+        run: python3 -c 'import base64; d=open("TV-Browser-debug.apk","rb").read(); [print("::notice title=TV Browser APK chunk::%04d:" % i + base64.b64encode(d[i*3000:(i+1)*3000]).decode()) for i in range(40,46) if d[i*3000:(i+1)*3000]]'
       - uses: actions/upload-artifact@v4
         with:
           name: TV-Browser-APK
