@@ -157,6 +157,34 @@ assert any(n.get('content-desc') == 'Return to full-screen page' and n.get('enab
 print('Toolbar and address focus verified')
 PY
 }
+assert_remote_mode() {
+  python3 - "$UI" "$1" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+expected = 'Item focus mode, selected' if sys.argv[2] == 'items' else 'Page scroll mode, selected'
+other = 'Page scroll mode' if sys.argv[2] == 'items' else 'Item focus mode'
+assert any(n.get('content-desc') == expected and n.get('selected') == 'true'
+           and n.get('focusable') == 'true' for n in nodes), f'{expected} not selected'
+assert any(n.get('content-desc') == other and n.get('selected') != 'true'
+           and n.get('focusable') == 'true' for n in nodes), f'{other} not available'
+assert any(n.get('content-desc') == 'Arena.ai help, opens a separate website' and n.get('focusable') == 'true'
+           for n in nodes), 'AI help is not remote-focusable'
+print('Remote mode selected:', sys.argv[2])
+PY
+}
+focus_mode_controls() {
+  adb shell input keyevent KEYCODE_MENU
+  show_focus
+  assert_toolbar
+  adb shell input keyevent KEYCODE_DPAD_UP
+  show_focus
+  python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+assert any(n.get('content-desc', '').startswith('Item focus mode') and n.get('focused') == 'true'
+           for n in nodes), 'Up from the address bar did not reach ITEMS'
+PY
+}
 focus_ad_toggle() {
   adb shell input keyevent KEYCODE_MENU
   show_focus
@@ -192,6 +220,7 @@ for label in ('Cinejoy.pk', 'PVRPlay', 'Netmirror.plus', 'Arena.ai',
                for n in nodes), f'{label} shortcut is missing or not remote-focusable'
 print('Home headline and all shortcuts are available')
 PY
+assert_remote_mode items
 
 # Check that the D-pad can leave the Home search for the shortcut grid and return.
 adb shell input keyevent KEYCODE_DPAD_RIGHT
@@ -281,6 +310,87 @@ adb shell input keyevent KEYCODE_BACK
 wait_for_text 'FOCUSED: entry'
 adb shell input keyevent KEYCODE_DPAD_RIGHT
 wait_for_text 'FOCUSED: after'
+
+# The top controls are reachable from the address bar and clearly identify the
+# selected mode. AI help explains that Arena.ai is a separate site; do not open
+# an external network connection in this isolated test.
+focus_mode_controls
+adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+assert any(n.get('content-desc') == 'Arena.ai help, opens a separate website' and n.get('focused') == 'true'
+           for n in nodes), 'AI help cannot be reached using the remote'
+PY
+adb shell input keyevent KEYCODE_DPAD_CENTER
+wait_for_text 'Arena.ai help'
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+text = ' '.join(n.get('text', '') for n in nodes)
+assert 'separate Arena.ai website' in text and 'will not automatically receive this conversation' in text
+assert 'cannot automatically update the app' in text
+print('Separate AI site and privacy explanation verified')
+PY
+adb shell input keyevent KEYCODE_BACK
+adb shell input keyevent KEYCODE_DPAD_LEFT
+show_focus
+python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter('node'))
+assert any(n.get('content-desc') == 'Page scroll mode' and n.get('focused') == 'true'
+           for n in nodes), 'SCROLL is not remote-focusable'
+PY
+before_requests=$(grep -Fc 'GET /remote-controls.html ' "$LOG")
+adb shell input keyevent KEYCODE_DPAD_CENTER
+show_focus
+assert_remote_mode scroll
+wait_for_text 'BACKGROUND CARD: opened'
+test "$(grep -Fc 'GET /remote-controls.html ' "$LOG")" = "$before_requests"
+# Returning to the existing document must scroll instead of jumping focus.
+adb shell input keyevent KEYCODE_BACK
+wait_for_text 'CURRENT: after'
+adb shell input keyevent KEYCODE_DPAD_DOWN
+wait_for_text 'SCROLL: moved'
+wait_for_text 'CURRENT: after'
+
+# Switch straight back to item focus without reloading, then check a real
+# directional move from the previously selected card.
+focus_mode_controls
+adb shell input keyevent KEYCODE_DPAD_CENTER
+show_focus
+assert_remote_mode items
+adb shell input keyevent KEYCODE_BACK
+adb shell input keyevent KEYCODE_DPAD_UP
+wait_for_text 'CURRENT: background-card'
+test "$(grep -Fc 'GET /remote-controls.html ' "$LOG")" = "$before_requests"
+
+# Leave SCROLL selected, restart the app and verify the saved setting applies
+# to a newly loaded page as well as to the selected button on Home.
+focus_mode_controls
+adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER
+show_focus
+assert_remote_mode scroll
+adb shell am force-stop com.visujju.tvbrowser
+adb shell am start -W -n com.visujju.tvbrowser/.MainActivity
+show_focus
+assert_remote_mode scroll
+adb shell input keyevent KEYCODE_DPAD_CENTER
+adb shell input text "http://127.0.0.1:$PORT/remote-controls.html"
+adb shell input keyevent KEYCODE_ENTER
+wait_for_title 'TV Browser remote controls test'
+wait_for_text 'TV remote helper: ready'
+wait_for_text 'CURRENT: first'
+adb shell input keyevent KEYCODE_DPAD_DOWN
+wait_for_text 'SCROLL: moved'
+wait_for_text 'CURRENT: first'
+# Reset to the default so the remaining browser tests use item navigation.
+focus_mode_controls
+adb shell input keyevent KEYCODE_DPAD_CENTER
+show_focus
+assert_remote_mode items
+adb shell input keyevent KEYCODE_BACK
 # Return to Home for the original browser, download and safety smoke tests.
 adb shell input keyevent KEYCODE_MENU
 show_focus

@@ -77,6 +77,9 @@ public final class MainActivity extends Activity {
     private static final String PREFS = "tv_browser";
     private static final String SAVED_KEY = "saved_pages";
     private static final String BLOCK_ADS_KEY = "block_ads";
+    private static final String REMOTE_MODE_KEY = "remote_mode";
+    private static final String MODE_ITEMS = "items";
+    private static final String MODE_SCROLL = "scroll";
     private static final String HOME_URL = "about:blank";
     private static final long HOLD_BACK_MS = 650;
 
@@ -102,6 +105,8 @@ public final class MainActivity extends Activity {
     private TextView reloadButton;
     private TextView fullScreenButton;
     private TextView adBlockButton;
+    private TextView itemsModeButton;
+    private TextView scrollModeButton;
     private TextView insecureBadge;
     private EditText address;
     private ProgressBar progress;
@@ -116,6 +121,7 @@ public final class MainActivity extends Activity {
     private boolean upHeldForToolbar;
     // WebView calls shouldInterceptRequest on a background thread.
     private volatile boolean adBlockingEnabled;
+    private String remoteMode = MODE_ITEMS;
     private String focusSupportScript;
     private String adBlockScript;
     private BrowserDownloads downloads;
@@ -134,6 +140,8 @@ public final class MainActivity extends Activity {
                 | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
         adBlockingEnabled = getPreferencesFile().getBoolean(BLOCK_ADS_KEY, true);
+        remoteMode = MODE_SCROLL.equals(getPreferencesFile().getString(REMOTE_MODE_KEY, MODE_ITEMS))
+                ? MODE_SCROLL : MODE_ITEMS;
         downloads = new BrowserDownloads(this, getPreferencesFile());
         focusSupportScript = loadAssetScript("tv_focus.js");
         adBlockScript = loadAssetScript("tv_adblock.js");
@@ -169,10 +177,29 @@ public final class MainActivity extends Activity {
         brandParams.leftMargin = dp(11);
         brand.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(brand, brandParams);
-        TextView byline = text("YOUR WINDOW TO THE WEB", 10, MUTED, true);
-        byline.setLetterSpacing(0.09f);
-        byline.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        header.addView(byline, new LinearLayout.LayoutParams(0, -1, 1));
+        header.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+        TextView remoteLabel = text("REMOTE", 10, MUTED, true);
+        remoteLabel.setLetterSpacing(0.08f);
+        remoteLabel.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams remoteLabelParams = new LinearLayout.LayoutParams(-2, -1);
+        remoteLabelParams.rightMargin = dp(10);
+        header.addView(remoteLabel, remoteLabelParams);
+        itemsModeButton = toolbarButton("ITEMS", "Item focus mode", v -> setRemoteMode(MODE_ITEMS));
+        scrollModeButton = toolbarButton("SCROLL", "Page scroll mode", v -> setRemoteMode(MODE_SCROLL));
+        itemsModeButton.setId(View.generateViewId());
+        scrollModeButton.setId(View.generateViewId());
+        itemsModeButton.setBackground(modeButtonBackground());
+        scrollModeButton.setBackground(modeButtonBackground());
+        addToolbarItem(header, itemsModeButton, 70);
+        addToolbarItem(header, scrollModeButton, 76);
+        TextView aiHelp = toolbarButton("AI HELP", "Arena.ai help, opens a separate website", v -> showAiHelp());
+        aiHelp.setId(View.generateViewId());
+        itemsModeButton.setNextFocusRightId(scrollModeButton.getId());
+        scrollModeButton.setNextFocusLeftId(itemsModeButton.getId());
+        scrollModeButton.setNextFocusRightId(aiHelp.getId());
+        aiHelp.setNextFocusLeftId(scrollModeButton.getId());
+        addToolbarItem(header, aiHelp, 78);
+        updateRemoteModeButtons();
 
         // Allow smaller TV displays to scroll to every control instead of crushing the address bar.
         toolbarScroller = new HorizontalScrollView(this);
@@ -198,6 +225,11 @@ public final class MainActivity extends Activity {
         addToolbarItem(toolbar, reloadButton, 44);
 
         address = new EditText(this);
+        address.setId(View.generateViewId());
+        address.setNextFocusUpId(itemsModeButton.getId());
+        itemsModeButton.setNextFocusDownId(address.getId());
+        scrollModeButton.setNextFocusDownId(address.getId());
+        aiHelp.setNextFocusDownId(address.getId());
         address.setSingleLine(true);
         address.setTextSize(15);
         address.setTextColor(TEXT);
@@ -536,6 +568,16 @@ public final class MainActivity extends Activity {
         return states;
     }
 
+    private StateListDrawable modeButtonBackground() {
+        StateListDrawable states = new StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_pressed}, rounded(ACCENT, 10, Color.WHITE, 2));
+        states.addState(new int[]{android.R.attr.state_focused}, rounded(ACCENT, 10, Color.WHITE, 2));
+        states.addState(new int[]{android.R.attr.state_selected},
+                rounded(Color.rgb(25, 91, 78), 10, ACCENT, 1));
+        states.addState(new int[]{}, rounded(Color.rgb(18, 31, 45), 10, Color.rgb(50, 68, 85), 1));
+        return states;
+    }
+
     private StateListDrawable primaryButtonBackground() {
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[]{android.R.attr.state_pressed}, rounded(Color.WHITE, 11, Color.WHITE, 2));
@@ -649,6 +691,9 @@ public final class MainActivity extends Activity {
             @Override
             public void onPageCommitVisible(WebView view, String url) {
                 injectAdBlockScript(view, url);
+                // Start remote support as soon as the page is visible; dynamic
+                // content is prepared by the helper as the page continues to load.
+                injectFocusScript(view, url);
             }
 
             @Override
@@ -661,9 +706,9 @@ public final class MainActivity extends Activity {
                     updateAddress(url);
                     updateSecurityLabel(url);
                     injectAdBlockScript(view, url);
-                    // These scripts add focus cues and hide some floating ads; they
-                    // never expose a native bridge or send page data elsewhere.
-                    if (focusSupportScript != null) view.evaluateJavascript(focusSupportScript, null);
+                    // Idempotent retry if the document was not ready at commit.
+                    // No native bridge or browsing data is exposed.
+                    injectFocusScript(view, url);
                 }
                 updateNavigation();
             }
@@ -755,11 +800,60 @@ public final class MainActivity extends Activity {
         });
     }
 
+    private void injectFocusScript(WebView view, String url) {
+        if (focusSupportScript != null && AddressResolver.isWebUrl(url) && url.equals(view.getUrl())) {
+            view.evaluateJavascript(focusSupportScript + remoteModeScript(), null);
+        }
+    }
+
     private void injectAdBlockScript(WebView view, String url) {
         if (adBlockingEnabled && adBlockScript != null && AddressResolver.isWebUrl(url)
                 && url.equals(view.getUrl())) {
             view.evaluateJavascript(adBlockScript, null);
         }
+    }
+
+    private String remoteModeScript() {
+        // The value is restricted to our two fixed constants, never page input.
+        return "\n;if(typeof window.__tvBrowserSetNavigationMode==='function')"
+                + "window.__tvBrowserSetNavigationMode('" + remoteMode + "');";
+    }
+
+    private void updateRemoteModeButtons() {
+        boolean items = MODE_ITEMS.equals(remoteMode);
+        itemsModeButton.setSelected(items);
+        scrollModeButton.setSelected(!items);
+        itemsModeButton.setContentDescription("Item focus mode" + (items ? ", selected" : ""));
+        scrollModeButton.setContentDescription("Page scroll mode" + (!items ? ", selected" : ""));
+    }
+
+    private void setRemoteMode(String mode) {
+        remoteMode = MODE_SCROLL.equals(mode) ? MODE_SCROLL : MODE_ITEMS;
+        getPreferencesFile().edit().putString(REMOTE_MODE_KEY, remoteMode).apply();
+        updateRemoteModeButtons();
+        updatePageHelper();
+        if (webView != null && !showingHome && AddressResolver.isWebUrl(webView.getUrl())) {
+            // Apply immediately on the current document; do not reload or
+            // interrupt playback. onPageFinished also applies it to new pages.
+            webView.evaluateJavascript(remoteModeScript(), null);
+        }
+        toast(MODE_SCROLL.equals(remoteMode) ? "Scroll mode selected" : "Item focus mode selected");
+    }
+
+    private void updatePageHelper() {
+        if (helper == null || showingHome) return;
+        helper.setText(MODE_SCROLL.equals(remoteMode)
+                ? "SCROLL MODE   •   ARROWS scroll   •   OK opens   •   HOLD BACK for controls"
+                : "ITEM MODE   •   ARROWS move   •   OK opens   •   HOLD BACK for controls");
+    }
+
+    private void showAiHelp() {
+        new AlertDialog.Builder(this).setTitle("Arena.ai help")
+                .setMessage("Open the separate Arena.ai website to ask for browser help? "
+                        + "It will not automatically receive this conversation or your browsing data, "
+                        + "and it cannot automatically update the app. Sign-in may be required.")
+                .setPositiveButton("OPEN ARENA.AI", (dialog, which) -> openUrl("https://arena.ai/"))
+                .setNegativeButton("CANCEL", null).show();
     }
 
     private void updateAdBlockButton() {
@@ -820,7 +914,7 @@ public final class MainActivity extends Activity {
         showingHome = false;
         homePanel.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
-        helper.setText("EXTERNAL WEBSITE   •   ARROWS move   •   OK opens   •   BACK returns");
+        updatePageHelper();
         updateInsecureBadge();
     }
 

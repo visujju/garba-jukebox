@@ -142,3 +142,30 @@ test('untrusted synthetic key events cannot trigger the added click fallback', (
   assert.equal(clicks, 0);
   dom.window.close();
 });
+
+test('a local dynamic update prepares new cards without rescanning the whole document', async () => {
+  const dom = page('<main id="catalogue"><section id="row"></section></main><div id="unrelated"></div>');
+  const doc = dom.window.document;
+  let documentScans = 0;
+  const original = doc.querySelectorAll.bind(doc);
+  doc.querySelectorAll = selector => { documentScans++; return original(selector); };
+  const card = doc.createElement('div');
+  card.style.cursor = 'pointer';
+  card.textContent = 'New dynamic poster';
+  doc.getElementById('row').appendChild(card);
+  await new Promise(resolve => dom.window.setTimeout(resolve, 300));
+  assert.equal(card.getAttribute('tabindex'), '0');
+  assert.equal(documentScans, 0, 'small updates only scan their affected subtree');
+  dom.window.close();
+});
+
+test('prepares a previously hidden dynamic section when it becomes visible', async () => {
+  const dom = page('<main><section id="row" hidden><img id="poster" alt="Poster"></section></main>');
+  const doc = dom.window.document;
+  const image = doc.getElementById('poster');
+  assert.equal(image.getAttribute('tabindex'), null);
+  doc.getElementById('row').removeAttribute('hidden');
+  await new Promise(resolve => dom.window.setTimeout(resolve, 300));
+  assert.equal(image.getAttribute('tabindex'), '0');
+  dom.window.close();
+});

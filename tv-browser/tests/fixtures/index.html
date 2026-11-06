@@ -66,7 +66,7 @@
       location.href = '/clicked.html?via=poster';
     });
     var poster = document.getElementById('second-poster');
-    var watcher = new MutationObserver(function () {
+    function checkHelper() {
       if (poster.getAttribute('data-tv-browser-focus-added') === 'true') {
         document.getElementById('helper-status').textContent = 'TV focus ready';
         // This listener is registered after the browser's focus helper.
@@ -78,8 +78,10 @@
         });
         watcher.disconnect();
       }
-    });
+    }
+    var watcher = new MutationObserver(checkHelper);
     watcher.observe(poster, {attributes: true, attributeFilter: ['data-tv-browser-focus-added']});
+    checkHelper();
   </script>
 </body>
 </html>

@@ -16,6 +16,9 @@
     .background-card { background: linear-gradient(135deg, #0c6a63, #153342); cursor: pointer; }
     input.card { text-align: left; padding: 0 12px; background: #f3f6f4; color: #14202a; }
     button.card { cursor: pointer; }
+    .telemetry { position: fixed; top: 12px; right: 12px; z-index: 20; padding: 8px;
+      background: #162f43; color: white; }
+    .spacer { height: 1400px; }
   </style>
 </head>
 <body>
@@ -23,6 +26,7 @@
   <p id="focus-status">FOCUSED: none</p>
   <p id="helper-status">TV remote helper: waiting</p>
   <p id="click-status">BACKGROUND CARD: not opened</p>
+  <div class="telemetry"><div id="scroll-status">SCROLL: top</div><div id="focus-mirror">CURRENT: none</div></div>
   <div class="grid">
     <a class="card" id="first" href="#first">First card</a>
     <a class="card shifted" id="same-row" href="#same-row">Same row, slightly lower</a>
@@ -31,21 +35,28 @@
     <input class="card" id="entry" type="text" aria-label="Remote text field" placeholder="Type here">
     <button class="card" id="after" type="button">Next action</button>
   </div>
+  <div class="spacer" aria-hidden="true"></div>
   <script>
     document.addEventListener('focusin', function (event) {
       document.getElementById('focus-status').textContent = 'FOCUSED: ' + event.target.id;
+      document.getElementById('focus-mirror').textContent = 'CURRENT: ' + event.target.id;
+    });
+    window.addEventListener('scroll', function () {
+      document.getElementById('scroll-status').textContent = window.scrollY > 40 ? 'SCROLL: moved' : 'SCROLL: top';
     });
     document.getElementById('background-card').addEventListener('click', function () {
       document.getElementById('click-status').textContent = 'BACKGROUND CARD: opened';
     });
     var card = document.getElementById('background-card');
-    var watcher = new MutationObserver(function () {
+    function checkHelper() {
       if (card.getAttribute('data-tv-browser-focus-added') === 'true') {
         document.getElementById('helper-status').textContent = 'TV remote helper: ready';
         watcher.disconnect();
       }
-    });
+    }
+    var watcher = new MutationObserver(checkHelper);
     watcher.observe(card, { attributes: true, attributeFilter: ['data-tv-browser-focus-added'] });
+    checkHelper();
     window.addEventListener('load', function () { document.getElementById('first').focus(); });
   </script>
 </body>

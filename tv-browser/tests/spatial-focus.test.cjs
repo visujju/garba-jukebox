@@ -192,3 +192,114 @@ test('does not navigate behind an open modal', () => {
   assert.equal(doc.activeElement.id, 'modal-right');
   dom.window.close();
 });
+
+test('keeps a nearby same-row or same-column item ahead of a closer diagonal', () => {
+  // These diagonal cards have a lower old weighted score, but are not in the
+  // row or column the user is navigating.
+  const dom = page(card('center', 100, 100) + card('diagonal-right', 180, 190) +
+    card('same-row', 280, 100) + card('diagonal-down', 190, 180) + card('same-column', 100, 280));
+  const doc = dom.window.document;
+  doc.getElementById('center').focus();
+  dom.remoteKey('ArrowRight');
+  assert.equal(doc.activeElement.id, 'same-row');
+  doc.getElementById('center').focus();
+  dom.remoteKey('ArrowDown');
+  assert.equal(doc.activeElement.id, 'same-column');
+  dom.window.close();
+});
+
+test('falls back to a nearby diagonal instead of a far-away aligned target', () => {
+  const dom = page(card('center', 20, 20) + card('diagonal', 150, 120) + card('distant', 1500, 20));
+  const doc = dom.window.document;
+  doc.getElementById('center').focus();
+  dom.remoteKey('ArrowRight');
+  assert.equal(doc.activeElement.id, 'diagonal');
+  dom.window.close();
+});
+
+function size(element, dimensions) {
+  for (const [name, value] of Object.entries(dimensions)) {
+    Object.defineProperty(element, name, { configurable: true, value });
+  }
+}
+
+test('switches immediately between page scrolling and item focus without moving focus', () => {
+  const dom = page(card('first', 20, 20) + card('below', 20, 300));
+  const doc = dom.window.document;
+  const root = doc.documentElement;
+  size(root, { clientWidth: 1024, clientHeight: 768, scrollWidth: 1024, scrollHeight: 3000 });
+  doc.getElementById('first').focus();
+  assert.equal(dom.window.__tvBrowserSetNavigationMode('scroll'), 'scroll');
+  assert.equal(dom.remoteKey('ArrowDown').defaultPrevented, true);
+  assert.ok(root.scrollTop > 0, 'Down scrolls the page');
+  assert.equal(doc.activeElement.id, 'first', 'scroll mode does not jump to a card');
+  dom.remoteKey('ArrowUp');
+  assert.equal(root.scrollTop, 0, 'Up scrolls back');
+  assert.equal(dom.remoteKey('ArrowLeft').defaultPrevented, true, 'edges do not fall back to focus');
+  // Idempotent reinjection must not reset the selection on the same page.
+  dom.window.eval(script);
+  dom.remoteKey('ArrowDown');
+  assert.equal(doc.activeElement.id, 'first');
+  assert.ok(root.scrollTop > 0);
+  assert.equal(dom.window.__tvBrowserSetNavigationMode('items'), 'items');
+  dom.remoteKey('ArrowDown');
+  assert.equal(doc.activeElement.id, 'below', 'item mode immediately resumes spatial focus');
+  dom.window.close();
+});
+
+test('scroll mode uses the nearest nested panel and horizontal carousel', () => {
+  const dom = page('<div id="panel" style="overflow: auto">' + card('first', 20, 20) + card('next', 200, 20) + '</div>');
+  const doc = dom.window.document;
+  const panel = doc.getElementById('panel');
+  size(panel, { clientWidth: 300, clientHeight: 200, scrollWidth: 1200, scrollHeight: 800 });
+  size(doc.documentElement, { clientWidth: 1024, clientHeight: 768, scrollWidth: 1024, scrollHeight: 3000 });
+  doc.getElementById('first').focus();
+  dom.window.__tvBrowserSetNavigationMode('scroll');
+  dom.remoteKey('ArrowRight');
+  assert.equal(panel.scrollLeft, 210);
+  dom.remoteKey('ArrowDown');
+  assert.equal(panel.scrollTop, 140);
+  assert.equal(doc.documentElement.scrollTop, 0, 'nested scroll has priority over the page');
+  assert.equal(doc.activeElement.id, 'first');
+  dom.remoteKey('ArrowLeft');
+  dom.remoteKey('ArrowUp');
+  assert.equal(panel.scrollLeft, 0);
+  assert.equal(panel.scrollTop, 0);
+  dom.window.close();
+});
+
+test('scroll mode supports right-to-left carousels', () => {
+  const dom = page('<div id="panel" style="overflow-x: auto; direction: rtl">' + card('first', 20, 20) + '</div>');
+  const doc = dom.window.document;
+  const panel = doc.getElementById('panel');
+  size(panel, { clientWidth: 300, clientHeight: 200, scrollWidth: 1200, scrollHeight: 200 });
+  doc.getElementById('first').focus();
+  dom.window.__tvBrowserSetNavigationMode('scroll');
+  dom.remoteKey('ArrowLeft');
+  assert.equal(panel.scrollLeft, -210);
+  dom.remoteKey('ArrowRight');
+  assert.equal(panel.scrollLeft, 0);
+  dom.window.close();
+});
+
+test('scroll mode respects editing, embedded media, site-handled keys and modals', () => {
+  const dom = page('<input id="input" value="abc">' + card('first', 20, 100) +
+    '<div id="dialog" role="dialog" aria-modal="true">' + card('inside', 20, 200) + '</div>');
+  const doc = dom.window.document;
+  const root = doc.documentElement;
+  size(root, { clientWidth: 1024, clientHeight: 768, scrollWidth: 1024, scrollHeight: 3000 });
+  dom.window.__tvBrowserSetNavigationMode('scroll');
+  doc.getElementById('input').focus();
+  assert.equal(dom.remoteKey('ArrowDown').defaultPrevented, false, 'text fields keep their keys');
+  assert.equal(root.scrollTop, 0);
+  doc.getElementById('inside').focus();
+  assert.equal(dom.remoteKey('ArrowDown').defaultPrevented, true);
+  assert.equal(root.scrollTop, 0, 'a modal does not scroll the page behind it');
+  doc.getElementById('dialog').remove();
+  doc.getElementById('first').focus();
+  assert.equal(dom.remoteKey('ArrowDown', {defaultPrevented: true}).defaultPrevented, true);
+  assert.equal(root.scrollTop, 0, 'site-handled keys are not duplicated');
+  assert.equal(dom.remoteKey('ArrowDown', {isTrusted: false}).defaultPrevented, false);
+  assert.equal(root.scrollTop, 0, 'synthetic keys are ignored');
+  dom.window.close();
+});

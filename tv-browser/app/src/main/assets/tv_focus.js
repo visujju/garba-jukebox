@@ -9,6 +9,13 @@
     window.__tvBrowserFocusInstalled = true;
 
     var addedAttribute = 'data-tv-browser-focus-added';
+    var navigationMode = 'items';
+    // The native toolbar changes only navigation behavior; no bridge or
+    // browsing data is exposed to the page.
+    window.__tvBrowserSetNavigationMode = function (mode) {
+        navigationMode = mode === 'scroll' ? 'scroll' : 'items';
+        return navigationMode;
+    };
     var actionable = 'a[href],button,input,select,textarea,summary,[role="button"],'
         + '[role="link"],[tabindex],[onclick]';
     var style = document.createElement('style');
@@ -20,30 +27,38 @@
         + 'box-shadow:0 0 0 2px #102036,0 0 0 6px rgba(126,240,205,.35) !important;}';
     (document.head || document.documentElement).appendChild(style);
 
-    function visible(element) {
+    function visible(element, rect, computed) {
         if (!element || element === document.body || element === document.documentElement
                 || element.closest('[aria-hidden="true"],[aria-disabled="true"],[hidden],[inert]')
                 || element.matches(':disabled')) return false;
-        var rect = element.getBoundingClientRect();
+        rect = rect || element.getBoundingClientRect();
         if (rect.width < 8 || rect.height < 8) return false;
-        var computed = window.getComputedStyle(element);
+        computed = computed || window.getComputedStyle(element);
         return computed.display !== 'none' && computed.visibility !== 'hidden'
             && computed.visibility !== 'collapse' && computed.opacity !== '0';
     }
 
-    function addFocus(element) {
+    function addFocus(element, rect, computed) {
         // Respect a website's existing tabindex, including an explicit -1.
-        if (element.hasAttribute('tabindex') || !visible(element)) return;
+        if (element.hasAttribute('tabindex') || !visible(element, rect, computed)) return;
         element.setAttribute('tabindex', '0');
         element.setAttribute(addedAttribute, 'true');
+    }
+
+    function within(scope, selector) {
+        var result = [];
+        if (scope.nodeType === 1 && scope.matches(selector)) result.push(scope);
+        var descendants = scope.querySelectorAll(selector);
+        for (var i = 0; i < descendants.length; i++) result.push(descendants[i]);
+        return result;
     }
 
     // Many sites use JavaScript click listeners and a pointer cursor on a
     // background-image card instead of a link/button. Keep this conservative:
     // never add a second stop around real controls, large page containers or
     // cards whose image already provides a better bubbling click target.
-    function preparePointerCards() {
-        var candidates = document.querySelectorAll('article,div,li,span');
+    function preparePointerCards(scope) {
+        var candidates = within(scope, 'article,div,li,span');
         var viewportWidth = Math.max(1, window.innerWidth);
         var viewportHeight = Math.max(1, window.innerHeight);
         for (var i = 0; i < candidates.length; i++) {
@@ -56,14 +71,15 @@
                     || rect.width * rect.height > viewportWidth * viewportHeight * 0.65
                     || rect.right < -viewportWidth || rect.left > 2 * viewportWidth
                     || rect.bottom < -viewportHeight || rect.top > 2 * viewportHeight) continue;
-            if (window.getComputedStyle(element).cursor !== 'pointer' || !visible(element)
+            var computed = window.getComputedStyle(element);
+            if (computed.cursor !== 'pointer' || !visible(element, rect, computed)
                     || element.querySelector(actionable + ',iframe,video,audio,[contenteditable]')) continue;
 
             var images = element.querySelectorAll('img:not([aria-hidden="true"]):not([role="presentation"])');
             var hasPoster = false;
             for (var j = 0; j < images.length; j++) {
                 var imageRect = images[j].getBoundingClientRect();
-                if (imageRect.width >= 64 && imageRect.height >= 64 && visible(images[j])) {
+                if (imageRect.width >= 64 && imageRect.height >= 64 && visible(images[j], imageRect)) {
                     hasPoster = true;
                     break;
                 }
@@ -78,12 +94,12 @@
                 if (childRect.width >= 48 && childRect.height >= 32
                         && window.getComputedStyle(child).cursor === 'pointer') pointerChildren++;
             }
-            if (pointerChildren < 2) addFocus(element);
+            if (pointerChildren < 2) addFocus(element, rect, computed);
         }
     }
 
-    function prepare() {
-        var elements = document.querySelectorAll('[role="button"],[role="link"],[onclick]');
+    function prepare(scope) {
+        var elements = within(scope, '[role="button"],[role="link"],[onclick]');
         for (var i = 0; i < elements.length; i++) {
             var element = elements[i];
             // Native controls already have their own keyboard activation semantics.
@@ -91,8 +107,8 @@
             if (element.parentElement && element.parentElement.closest(actionable)) continue;
             addFocus(element);
         }
-        preparePointerCards();
-        var images = document.querySelectorAll('img');
+        preparePointerCards(scope);
+        var images = within(scope, 'img');
         for (var j = 0; j < images.length; j++) {
             var image = images[j];
             if (image.getAttribute('role') === 'presentation' || image.getAttribute('aria-hidden') === 'true') continue;
@@ -100,7 +116,7 @@
             if (rect.width < 64 || rect.height < 64) continue;
             // Do not create a second stop inside a link, button or focusable card.
             if (image.parentElement && image.parentElement.closest(actionable)) continue;
-            addFocus(image);
+            addFocus(image, rect);
         }
     }
 
@@ -135,16 +151,16 @@
         var from = current && current !== document.body && current !== document.documentElement
             && visible(current) && (scope === document || scope.contains(current))
             ? current.getBoundingClientRect() : null;
-        var best = null;
-        var bestScore = Infinity;
+        var best = null, bestScore = Infinity, bestRect = null;
+        var aligned = null, alignedScore = Infinity, alignedRect = null;
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
             var tabIndex = item.getAttribute('tabindex');
             if (item === current || (tabIndex !== null && Number(tabIndex) < 0)
-                    || (item.tabIndex < 0 && !item.hasAttribute('contenteditable')) || !visible(item)) continue;
+                    || (item.tabIndex < 0 && !item.hasAttribute('contenteditable'))) continue;
             if (from && current && (current.contains(item) || item.contains(current))) continue;
             var rect = item.getBoundingClientRect();
-            var score;
+            var score, sameLane = false;
             if (!from) {
                 // Start at the first visible item, not the page's HTML/tab order.
                 if (rect.right <= 0 || rect.bottom <= 0
@@ -159,9 +175,7 @@
                 var primary = horizontal ? itemX - fromX : itemY - fromY;
                 if (direction === 'left' || direction === 'up') primary = -primary;
                 var viewportSize = horizontal ? window.innerWidth : window.innerHeight;
-                // A focus animation or uneven posters can shift controls on the
-                // same row by a few pixels. Do not mistake that for Up/Down (or
-                // the same column for Left/Right).
+                // Ignore tiny offsets between items on the same row or column.
                 var threshold = Math.max(3, 0.25 * (horizontal
                     ? Math.min(from.width, rect.width) : Math.min(from.height, rect.height)));
                 if (primary <= threshold || primary > 2 * viewportSize) continue;
@@ -169,16 +183,26 @@
                     ? Math.max(0, from.top - rect.bottom, rect.top - from.bottom)
                     : Math.max(0, from.left - rect.right, rect.left - from.right);
                 var crossCenter = horizontal ? Math.abs(itemY - fromY) : Math.abs(itemX - fromX);
-                // Favor a nearby item on the same row/column, but allow a
-                // diagonal choice when that is the closest available option.
                 score = primary + 2 * crossGap + 0.05 * crossCenter;
+                // Keep moving along the same row/column when a nearby target
+                // exists, instead of unexpectedly jumping to a diagonal row.
+                sameLane = crossGap === 0 && primary <= 1.25 * viewportSize;
             }
-            if (score < bestScore) {
-                best = item;
-                bestScore = score;
+            // Check styles only for geometrically plausible targets; long pages
+            // can contain thousands of links and this runs on every arrow.
+            if (!visible(item, rect)) continue;
+            if (score < bestScore || (score === bestScore && before(rect, bestRect))) {
+                best = item; bestScore = score; bestRect = rect;
+            }
+            if (sameLane && (score < alignedScore || (score === alignedScore && before(rect, alignedRect)))) {
+                aligned = item; alignedScore = score; alignedRect = rect;
             }
         }
-        return best;
+        return aligned || best;
+    }
+
+    function before(a, b) {
+        return !b || a.top < b.top || (a.top === b.top && a.left < b.left);
     }
 
     // Preserve caret movement and specialised native controls. An ordinary
@@ -205,12 +229,70 @@
         return true;
     }
 
+    // In scroll mode, keep editing, media, embedded frames and specialized
+    // controls in charge of their own arrows. Enter/OK still activates links.
+    function pageOwnsScrollArrows(element) {
+        return !!(element && element.closest('input,textarea,select,iframe,video,audio,'
+            + '[contenteditable=""],[contenteditable="true"],'
+            + '[role="slider"],[role="spinbutton"],[role="combobox"]'));
+    }
+
+    function canScroll(element, horizontal, sign, computed) {
+        var size = horizontal ? element.clientWidth : element.clientHeight;
+        var max = Math.max(0, (horizontal ? element.scrollWidth : element.scrollHeight) - size);
+        var position = horizontal ? element.scrollLeft : element.scrollTop;
+        if (max <= 1) return false;
+        // Chromium represents an RTL horizontal scroller as 0 to -max.
+        if (horizontal && computed.direction === 'rtl' && position <= 0) {
+            return sign < 0 ? position > -max + 1 : position < -1;
+        }
+        return sign < 0 ? position > 1 : position < max - 1;
+    }
+
+    function scrollPage(current, direction) {
+        var horizontal = direction === 'left' || direction === 'right';
+        var sign = direction === 'left' || direction === 'up' ? -1 : 1;
+        var root = document.scrollingElement || document.documentElement;
+        var scope = modalScope();
+        var node = current;
+        if (scope !== document && (!node || !scope.contains(node))) node = scope;
+        // Prefer the focused item's nearest scrollable panel or carousel.
+        // If nothing is focused, a panel under the screen center is a useful
+        // fallback for pages that scroll inside a full-screen container.
+        if ((!node || node === document.body || node === document.documentElement)
+                && document.elementFromPoint) {
+            node = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2) || node;
+        }
+        for (; node && node.nodeType === 1 && node !== root
+                && node !== document.body && node !== document.documentElement
+                && (scope === document || node === scope || scope.contains(node)); node = node.parentElement) {
+            var computed = window.getComputedStyle(node);
+            var overflow = (horizontal ? computed.overflowX : computed.overflowY) || computed.overflow;
+            if (!/^(auto|scroll|overlay)$/.test(overflow) || !canScroll(node, horizontal, sign, computed)) continue;
+            var panelSize = horizontal ? node.clientWidth : node.clientHeight;
+            var panelStep = sign * Math.max(80, Math.round(panelSize * 0.7));
+            if (horizontal) node.scrollLeft += panelStep;
+            else node.scrollTop += panelStep;
+            return true;
+        }
+        // Never scroll the page behind an open modal dialog.
+        if (scope !== document) return false;
+        var rootStyle = window.getComputedStyle(root);
+        if (!canScroll(root, horizontal, sign, rootStyle)) return false;
+        var viewportSize = horizontal ? window.innerWidth : window.innerHeight;
+        var step = sign * Math.max(80, Math.round(viewportSize * 0.7));
+        if (horizontal) root.scrollLeft += step;
+        else root.scrollTop += step;
+        return true;
+    }
+
     // Detect sites that move focus or scroll themselves, even when they do not
     // explicitly prevent the key. Track scrollable ancestors as well as the
     // window so carousels do not get a second, unwanted movement.
     var keyStarts = new WeakMap();
     window.addEventListener('keydown', function (event) {
-        if (!event.isTrusted) return;
+        if (!event.isTrusted || (!/^(Arrow)?(Left|Right|Up|Down)$/.test(event.key || '')
+                && (event.keyCode < 37 || event.keyCode > 40))) return;
         var offsets = [];
         for (var node = document.activeElement; node && node.nodeType === 1; node = node.parentElement) {
             offsets.push({node: node, x: node.scrollLeft, y: node.scrollTop});
@@ -244,6 +326,13 @@
         var direction = keys[event.key] || codes[event.keyCode];
         if (!direction) return;
         var current = document.activeElement;
+        if (navigationMode === 'scroll') {
+            if (pageOwnsScrollArrows(current)) return;
+            scrollPage(current, direction);
+            // Do not fall back to WebView's spatial focus at the page edge.
+            event.preventDefault();
+            return;
+        }
         if (pageOwnsArrows(current, direction)) return;
         var next = nextInDirection(current, direction);
         if (!next) return; // Let WebView scroll or use its own fallback at the edge.
@@ -256,25 +345,52 @@
         event.preventDefault();
     }, false);
 
-    var scheduled = false;
-    function schedulePrepare() {
+    var scheduled = false, wholePage = false, dirtyRoots = [];
+    function schedulePrepare(root) {
+        if (!window.document || !window.document.documentElement) return;
+        if (!root || root === document || root === document.body || root === document.documentElement) {
+            wholePage = true;
+            dirtyRoots = [];
+        } else if (!wholePage && root.nodeType === 1) {
+            var covered = false;
+            for (var i = dirtyRoots.length - 1; i >= 0; i--) {
+                if (dirtyRoots[i].contains(root)) { covered = true; break; }
+                if (root.contains(dirtyRoots[i])) dirtyRoots.splice(i, 1);
+            }
+            if (!covered) dirtyRoots.push(root);
+            if (dirtyRoots.length > 40) { wholePage = true; dirtyRoots = []; }
+        }
         if (scheduled) return;
         scheduled = true;
         window.setTimeout(function () {
-            scheduled = false;
-            prepare();
+            var full = wholePage, roots = dirtyRoots;
+            scheduled = false; wholePage = false; dirtyRoots = [];
+            if (full) prepare(document);
+            else for (var j = 0; j < roots.length; j++) {
+                if (document.documentElement.contains(roots[j])) prepare(roots[j]);
+            }
         }, 200);
     }
-    prepare();
-    // Many catalogues and single-page sites insert poster cards after load.
-    var observer = new MutationObserver(schedulePrepare);
+    prepare(document);
+    // Most DOM updates are local (a badge, a carousel card or an animation).
+    // Re-scan just those subtrees, batching bursts, rather than the whole page.
+    var observer = new MutationObserver(function (records) {
+        for (var i = 0; i < records.length; i++) schedulePrepare(records[i].target);
+    });
     observer.observe(document.documentElement, {
         subtree: true, childList: true, attributes: true,
         attributeFilter: ['class', 'style', 'hidden', 'inert', 'aria-hidden', 'aria-disabled', 'src', 'role', 'onclick']
     });
-    window.addEventListener('resize', schedulePrepare, false);
-    // Pointer-style cards are prepared near the viewport; catch both page and
-    // nested-carousel scrolls so newly revealed cards become reachable.
-    document.addEventListener('scroll', schedulePrepare, true);
-    document.addEventListener('load', schedulePrepare, true);
+    window.addEventListener('resize', function () { schedulePrepare(document); }, false);
+    // Pointer-style cards are prepared near the viewport. A carousel scroll
+    // only needs its own subtree; scrolling the page needs a viewport-wide pass.
+    document.addEventListener('scroll', function (event) {
+        var target = event.target;
+        schedulePrepare(target && target.nodeType === 1 ? target : document);
+    }, true);
+    document.addEventListener('load', function (event) {
+        if (event.target !== document) {
+            schedulePrepare(event.target && event.target.parentElement || document);
+        }
+    }, true);
 })();
