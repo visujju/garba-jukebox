@@ -303,3 +303,38 @@ test('scroll mode respects editing, embedded media, site-handled keys and modals
   assert.equal(root.scrollTop, 0, 'synthetic keys are ignored');
   dom.window.close();
 });
+
+test('restores the selected item after browser chrome temporarily takes focus', () => {
+  const dom = page(card('first', 20, 20) + card('selected', 200, 20));
+  const doc = dom.window.document;
+  doc.getElementById('selected').focus();
+  dom.window.__tvBrowserRememberFocus();
+  // WebView may focus the first link as it regains native focus.
+  doc.getElementById('first').focus();
+  assert.equal(dom.window.__tvBrowserRestoreFocus(), true);
+  assert.equal(doc.activeElement.id, 'selected');
+  assert.equal(dom.window.__tvBrowserRestoreFocus(), false, 'the saved target is consumed');
+  dom.window.close();
+});
+
+test('does not restore a removed item or an item behind a modal', () => {
+  const dom = page(card('first', 20, 20) + card('selected', 200, 20));
+  const doc = dom.window.document;
+  const selected = doc.getElementById('selected');
+  selected.focus();
+  dom.window.__tvBrowserRememberFocus();
+  selected.remove();
+  doc.getElementById('first').focus();
+  assert.equal(dom.window.__tvBrowserRestoreFocus(), false);
+  assert.equal(doc.activeElement.id, 'first');
+  dom.window.__tvBrowserRememberFocus();
+  const dialog = doc.createElement('div');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.innerHTML = card('modal', 300, 20);
+  doc.body.appendChild(dialog);
+  doc.getElementById('modal').focus();
+  assert.equal(dom.window.__tvBrowserRestoreFocus(), false);
+  assert.equal(doc.activeElement.id, 'modal');
+  dom.window.close();
+});

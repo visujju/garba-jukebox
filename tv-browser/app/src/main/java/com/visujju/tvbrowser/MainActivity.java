@@ -942,6 +942,11 @@ public final class MainActivity extends Activity {
     }
 
     private void revealToolbar(boolean openKeyboard) {
+        if (!chromeVisible && !showingHome && errorPanel.getVisibility() != View.VISIBLE
+                && AddressResolver.isWebUrl(webView.getUrl())) {
+            webView.evaluateJavascript("if(typeof window.__tvBrowserRememberFocus==='function')"
+                    + "window.__tvBrowserRememberFocus();", null);
+        }
         setBrowserChromeVisible(true);
         focusAddress(openKeyboard);
     }
@@ -951,7 +956,17 @@ public final class MainActivity extends Activity {
         hideKeyboard();
         setBrowserChromeVisible(false);
         if (errorPanel.getVisibility() == View.VISIBLE) errorRetry.requestFocus();
-        else webView.requestFocus();
+        else {
+            webView.requestFocus();
+            // Android can initially focus the first link when the WebView
+            // regains focus. Restore the previously selected item afterward.
+            webView.post(() -> {
+                if (!chromeVisible && !showingHome && webView.hasFocus()) {
+                    webView.evaluateJavascript("if(typeof window.__tvBrowserRestoreFocus==='function')"
+                            + "window.__tvBrowserRestoreFocus();", null);
+                }
+            });
+        }
     }
 
     private TextView createInsecureBadge() {

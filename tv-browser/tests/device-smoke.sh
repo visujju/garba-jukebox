@@ -427,6 +427,26 @@ assert_toolbar
 adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER
 wait_for_text 'Your shortcuts'
 
+# A nearer diagonal card must not steal focus from the next item in the
+# intended row or column, even with real WebView D-pad events.
+adb shell input keyevent KEYCODE_DPAD_CENTER
+adb shell input text "http://127.0.0.1:$PORT/lane-controls.html"
+adb shell input keyevent KEYCODE_ENTER
+wait_for_title 'TV Browser lane navigation test'
+wait_for_text 'LANE HELPER: ready'
+wait_for_text 'LANE: first'
+adb shell input keyevent KEYCODE_DPAD_RIGHT
+wait_for_text 'LANE: right'
+adb shell input keyevent KEYCODE_DPAD_LEFT
+wait_for_text 'LANE: first'
+adb shell input keyevent KEYCODE_DPAD_DOWN
+wait_for_text 'LANE: below'
+adb shell input keyevent KEYCODE_MENU
+show_focus
+assert_toolbar
+adb shell input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER
+wait_for_text 'Your shortcuts'
+
 # Activate the home search, enter the local URL using keyboard events, and submit it.
 adb shell input keyevent KEYCODE_DPAD_CENTER
 adb shell input text "http://127.0.0.1:$PORT/"

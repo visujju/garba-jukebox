@@ -38,6 +38,28 @@
             && computed.visibility !== 'collapse' && computed.opacity !== '0';
     }
 
+    // Native browser chrome temporarily takes focus away from the WebView.
+    // Keep the selected element in this document so returning to the page does
+    // not unexpectedly restart at the first poster.
+    var lastFocused = document.activeElement, rememberedFocus = null;
+    document.addEventListener('focusin', function (event) {
+        if (event.target && event.target.nodeType === 1) lastFocused = event.target;
+    }, true);
+    window.__tvBrowserRememberFocus = function () {
+        var active = document.activeElement;
+        rememberedFocus = active && active !== document.body && active !== document.documentElement
+            ? active : lastFocused;
+    };
+    window.__tvBrowserRestoreFocus = function () {
+        var target = rememberedFocus;
+        rememberedFocus = null;
+        var scope = modalScope();
+        if (!target || !document.documentElement.contains(target) || !visible(target)
+                || (scope !== document && !scope.contains(target))) return false;
+        try { target.focus({preventScroll: true}); } catch (ignored) { target.focus(); }
+        return document.activeElement === target;
+    };
+
     function addFocus(element, rect, computed) {
         // Respect a website's existing tabindex, including an explicit -1.
         if (element.hasAttribute('tabindex') || !visible(element, rect, computed)) return;

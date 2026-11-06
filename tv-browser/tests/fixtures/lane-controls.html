@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TV Browser lane navigation test</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #102034; color: white; font: 18px sans-serif; }
+    h1 { margin: 16px 32px 6px; font-size: 24px; }
+    p { margin: 4px 32px; }
+    .card { position: absolute; width: 80px; height: 60px; box-sizing: border-box; display: flex;
+      align-items: center; justify-content: center; border-radius: 6px; color: white;
+      text-decoration: none; background: #28475a; }
+    #first { left: 100px; top: 150px; }
+    #diagonal { left: 190px; top: 245px; }
+    #right { left: 320px; top: 150px; }
+    #below { left: 100px; top: 360px; }
+  </style>
+</head>
+<body>
+  <h1>Lane navigation fixture</h1>
+  <p id="focus-status">LANE: none</p>
+  <p id="helper-status">LANE HELPER: waiting</p>
+  <a class="card" id="first" href="#first">Start</a>
+  <a class="card" id="diagonal" href="#diagonal">Diagonal</a>
+  <a class="card" id="right" href="#right">Right</a>
+  <a class="card" id="below" href="#below">Below</a>
+  <script>
+    document.addEventListener('focusin', function (event) {
+      document.getElementById('focus-status').textContent = 'LANE: ' + event.target.id;
+    });
+    var timer = setInterval(function () {
+      if (window.__tvBrowserFocusInstalled) {
+        document.getElementById('helper-status').textContent = 'LANE HELPER: ready';
+        clearInterval(timer);
+      }
+    }, 25);
+    window.addEventListener('load', function () { document.getElementById('first').focus(); });
+  </script>
+</body>
+</html>
